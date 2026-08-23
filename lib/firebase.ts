@@ -81,10 +81,20 @@ export function subscribeToQueries(callback: (queries: QueryItem[]) => void) {
   }
 }
 
+function removeUndefinedFields<T extends Record<string, any>>(obj: T): T {
+  const cleaned: any = {};
+  Object.keys(obj).forEach((key) => {
+    if (obj[key] !== undefined) {
+      cleaned[key] = obj[key];
+    }
+  });
+  return cleaned;
+}
+
 // Add query
 export async function addQueryDoc(data: Omit<QueryItem, 'id' | 'createdAt' | 'updatedAt'>) {
   return await addDoc(collection(db, 'queries'), {
-    ...data,
+    ...removeUndefinedFields(data),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
@@ -94,7 +104,7 @@ export async function addQueryDoc(data: Omit<QueryItem, 'id' | 'createdAt' | 'up
 export async function updateQueryDoc(id: string, data: Partial<QueryItem>) {
   const docRef = doc(db, 'queries', id);
   return await updateDoc(docRef, {
-    ...data,
+    ...removeUndefinedFields(data),
     updatedAt: serverTimestamp()
   });
 }
@@ -109,7 +119,7 @@ export async function deleteQueryDoc(id: string) {
 export async function saveChatLog(log: ChatLogItem) {
   try {
     return await addDoc(collection(db, 'chat_logs'), {
-      ...log,
+      ...removeUndefinedFields(log),
       timestamp: serverTimestamp()
     });
   } catch (err) {

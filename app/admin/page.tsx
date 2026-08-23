@@ -243,8 +243,8 @@ export default function AdminDashboard() {
         topic: formTopic.trim(),
         userQuery: formUserQuery.trim(),
         answer: formAnswer.trim(),
-        buttonName: formButtonName.trim() || undefined,
-        buttonLink: formButtonLink.trim() || undefined,
+        buttonName: formButtonName.trim() || '',
+        buttonLink: formButtonLink.trim() || '',
       };
 
       if (editingId) {
