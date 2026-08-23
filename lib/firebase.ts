@@ -5,6 +5,7 @@ import {
   doc, 
   getDocs, 
   getDoc,
+  setDoc,
   addDoc, 
   updateDoc, 
   deleteDoc, 
@@ -146,3 +147,20 @@ export function subscribeToChatLogs(callback: (logs: ChatLogItem[]) => void) {
     return () => {};
   }
 }
+
+// Save OTP to Firestore
+export async function saveOtpToDatabase(otp: string) {
+  const docRef = doc(db, 'admin_settings', 'current_otp');
+  await setDoc(docRef, { code: otp, timestamp: serverTimestamp() });
+}
+
+// Verify OTP from Firestore
+export async function verifyOtpFromDatabase(inputOtp: string) {
+  const docRef = doc(db, 'admin_settings', 'current_otp');
+  const snap = await getDoc(docRef);
+  if (snap.exists() && snap.data().code === inputOtp) {
+    return true;
+  }
+  return false;
+}
+
