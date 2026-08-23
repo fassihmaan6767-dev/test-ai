@@ -100,6 +100,34 @@ export default function AdminDashboard() {
     };
   }, []);
 
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (!user) return; // Only apply if authenticated
+      
+      // Ctrl + X / Cmd + X to open new query modal
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x') {
+        const tag = document.activeElement?.tagName.toLowerCase();
+        // Prevent triggering if user is actively cutting text in an input
+        if (tag !== 'input' && tag !== 'textarea') {
+          e.preventDefault();
+          openNewQueryModal();
+        }
+      }
+
+      // Ctrl + S / Cmd + S to save query
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        const form = document.getElementById('query-form') as HTMLFormElement;
+        if (form) {
+          form.requestSubmit();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [user]);
+
   const handleGoogleSignIn = async () => {
     setAuthError('');
     setAuthSubmitting(true);
@@ -107,7 +135,7 @@ export default function AdminDashboard() {
       const result = await signInWithPopup(auth, googleProvider);
       if (result.user.email !== 'talkwithfasih@gmail.com') {
         await signOut(auth);
-        setAuthError('Access Denied: Only Admin (talkwithfasih@gmail.com) can log in.');
+        setAuthError('Access Denied: You do not have admin privileges.');
       } else {
         showToast('Logged in with Google successfully');
       }
@@ -124,7 +152,7 @@ export default function AdminDashboard() {
     setAuthError('');
     
     if (email.toLowerCase() !== 'talkwithfasih@gmail.com') {
-      setAuthError('Access Denied: Only Admin (talkwithfasih@gmail.com) can register or log in.');
+      setAuthError('Access Denied: You do not have admin privileges.');
       return;
     }
     
@@ -156,7 +184,7 @@ export default function AdminDashboard() {
       return;
     }
     if (email.toLowerCase() !== 'talkwithfasih@gmail.com') {
-      setAuthError('Password reset is only available for the Admin email.');
+      setAuthError('Password reset is only available for the authorized admin.');
       return;
     }
     try {
@@ -314,9 +342,9 @@ export default function AdminDashboard() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#f3eee7] flex flex-col justify-center items-center p-6 relative overflow-hidden font-sans">
-        <div className="absolute -top-40 -left-40 w-96 h-96 bg-[#e4d8c9] rounded-full blur-3xl opacity-50" />
-        <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-[#ded1c0] rounded-full blur-3xl opacity-50" />
+      <div className="min-h-screen bg-gradient-to-br from-[#f4eee6] to-[#e6dcd0] flex flex-col justify-center items-center p-6 relative overflow-hidden font-sans">
+        <div className="absolute -top-40 -left-40 w-96 h-96 bg-white/40 rounded-full blur-3xl opacity-60" />
+        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-[#d5c3af]/30 rounded-full blur-3xl opacity-60" />
 
         <Link 
           href="/"
@@ -326,17 +354,18 @@ export default function AdminDashboard() {
         </Link>
 
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md bg-[#faf7f2] border border-[#e2d5c3] shadow-xl rounded-2xl p-8 z-10"
+          initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
+          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+          transition={{ duration: 0.8, ease: [0.25, 1, 0.5, 1] }}
+          className="w-full max-w-md bg-white/50 backdrop-blur-2xl border border-white/60 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] rounded-3xl p-10 z-10"
         >
-          <div className="flex items-center justify-center w-12 h-12 bg-[#ebe1d3] rounded-full mx-auto mb-4 text-[#4A3E33]">
+          <div className="flex items-center justify-center w-14 h-14 bg-gradient-to-b from-white to-[#f0e8dc] border border-white shadow-sm rounded-full mx-auto mb-6 text-[#4A3E33]">
             <ShieldCheck className="w-6 h-6" />
           </div>
 
-          <div className="text-center mb-6">
-            <h1 className="font-serif text-2xl font-normal text-[#1A1A1A]">Admin Control Center</h1>
-            <p className="text-xs text-[#6B5E52] mt-1">Manage AI knowledge base, queries & button links</p>
+          <div className="text-center mb-8">
+            <h1 className="font-serif text-3xl font-medium text-[#1A1A1A] tracking-tight">Admin Portal</h1>
+            <p className="text-xs text-[#8A7B6E] mt-2 tracking-wide uppercase">Secure Access Only</p>
           </div>
 
           {authError && (
@@ -373,7 +402,7 @@ export default function AdminDashboard() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="talkwithfasih@gmail.com"
+                placeholder="admin@example.com"
                 className="w-full px-3.5 py-2.5 bg-white border border-[#d6c7b4] rounded-xl text-sm outline-none focus:border-[#4A3E33] text-[#1A1A1A]"
               />
             </div>
@@ -524,12 +553,17 @@ export default function AdminDashboard() {
           </div>
 
           {activeTab === 'queries' && (
-            <button
-              onClick={openNewQueryModal}
-              className="flex items-center gap-1.5 px-4 py-2 bg-[#241E1A] hover:bg-[#3D332D] text-white rounded-xl text-xs font-medium transition-all shadow-sm cursor-pointer"
-            >
-              <Plus className="w-4 h-4" /> Add Query
-            </button>
+            <div className="flex items-center gap-4">
+              <span className="hidden sm:inline-block text-[10px] text-[#8A7B6E] font-medium px-2 py-1 bg-[#eae0d2] rounded-md">
+                Ctrl + X : New
+              </span>
+              <button
+                onClick={openNewQueryModal}
+                className="flex items-center gap-1.5 px-4 py-2 bg-[#241E1A] hover:bg-[#3D332D] text-white rounded-xl text-xs font-medium transition-all shadow-sm cursor-pointer"
+              >
+                <Plus className="w-4 h-4" /> Add Query
+              </button>
+            </div>
           )}
         </div>
 
@@ -745,7 +779,7 @@ service cloud.firestore {
                 </button>
               </div>
 
-              <form onSubmit={handleSaveQuery} className="p-6 overflow-y-auto space-y-4 flex-1">
+              <form id="query-form" onSubmit={handleSaveQuery} className="p-6 overflow-y-auto space-y-4 flex-1">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-[#4A3E33] mb-1">Topic / Category</label>
@@ -885,9 +919,10 @@ service cloud.firestore {
                   <button
                     type="submit"
                     disabled={formSubmitting}
-                    className="px-5 py-2.5 bg-[#241E1A] hover:bg-[#3D332D] text-white text-xs font-medium rounded-xl shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                    className="px-5 py-2.5 bg-[#241E1A] hover:bg-[#3D332D] text-white text-xs font-medium rounded-xl shadow-sm transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2"
                   >
                     {formSubmitting ? 'Saving to Database...' : editingId ? 'Update Query' : 'Save Query to Firestore'}
+                    <span className="hidden sm:inline-block text-[9px] bg-white/20 px-1.5 py-0.5 rounded ml-1 text-white/80">Ctrl + S</span>
                   </button>
                 </div>
               </form>

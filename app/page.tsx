@@ -144,32 +144,42 @@ export default function Home() {
   };
 
   const renderAnimatedText = (text: string) => {
-    // Split by words keeping whitespace intact
-    const tokens = text.split(/(\s+)/);
+    // Basic markdown bold parsing
+    const parts = text.split(/(\*\*.*?\*\*)/);
     let wordCount = 0;
     
     return (
       <div className="font-serif text-2xl md:text-3xl leading-snug text-[#1A1A1A] min-h-[1.5em] block">
-        {tokens.map((token, idx) => {
-          if (token.includes('\n')) {
-            return <br key={idx} />;
-          } else if (token.trim() === '') {
-            return <span key={idx}>{token}</span>;
-          } else {
-            const currentIdx = wordCount++;
-            return (
-              <motion.span
-                key={idx}
-                initial={{ opacity: 0, filter: 'blur(12px)', y: 5 }}
-                whileInView={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.9, delay: currentIdx * 0.04, ease: [0.25, 1, 0.5, 1] }}
-                className="inline-block"
-              >
-                {token}
-              </motion.span>
-            );
-          }
+        {parts.map((part, pIdx) => {
+          const isBold = part.startsWith('**') && part.endsWith('**');
+          const cleanText = isBold ? part.slice(2, -2) : part;
+          const tokens = cleanText.split(/(\s+)/);
+          
+          return (
+            <span key={pIdx} className={isBold ? "font-bold font-sans tracking-tight" : ""}>
+              {tokens.map((token, tIdx) => {
+                if (token.includes('\n')) {
+                  return <br key={tIdx} />;
+                } else if (token.trim() === '') {
+                  return <span key={tIdx}>{token}</span>;
+                } else {
+                  const currentIdx = wordCount++;
+                  return (
+                    <motion.span
+                      key={tIdx}
+                      initial={{ opacity: 0, filter: 'blur(12px)', y: 5 }}
+                      whileInView={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.9, delay: currentIdx * 0.04, ease: [0.25, 1, 0.5, 1] }}
+                      className="inline-block"
+                    >
+                      {token}
+                    </motion.span>
+                  );
+                }
+              })}
+            </span>
+          );
         })}
       </div>
     );
@@ -227,19 +237,24 @@ export default function Home() {
                         {/* Interactive Database CTA Button if provided */}
                         {msg.buttonName && msg.buttonLink && (
                           <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            transition={{ duration: 0.8, delay: 0.6 }}
-                            className="mt-4"
+                            initial={{ opacity: 0, filter: 'blur(20px)', y: 20, scale: 0.95 }}
+                            animate={{ opacity: 1, filter: 'blur(0px)', y: 0, scale: 1 }}
+                            transition={{ 
+                              duration: 1.2, 
+                              delay: (msg.text.split(/\s+/).filter(t => t.trim() !== '').length * 0.04) + 0.5,
+                              ease: [0.25, 1, 0.5, 1] 
+                            }}
+                            className="mt-6 inline-block"
                           >
                             <a
                               href={msg.buttonLink}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 px-6 py-3 bg-[#1A1A1A] hover:bg-[#333] text-[#ded4c6] rounded-full text-sm font-sans tracking-wide transition-all shadow-md hover:shadow-lg hover:scale-105 cursor-pointer"
+                              className="group relative inline-flex items-center gap-3 px-8 py-4 bg-[#1A1A1A] text-[#ded4c6] rounded-full text-sm font-sans tracking-wider overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.15)] transition-all hover:scale-105 hover:shadow-[0_15px_50px_rgba(0,0,0,0.25)]"
                             >
-                              <span>{msg.buttonName}</span>
-                              <ExternalLink className="w-4 h-4" />
+                              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-[0.25,1,0.5,1] rounded-full pointer-events-none" />
+                              <span className="relative z-10 font-medium">{msg.buttonName}</span>
+                              <ExternalLink className="w-4 h-4 relative z-10 transition-transform duration-500 group-hover:translate-x-1 group-hover:-translate-y-1" />
                             </a>
                           </motion.div>
                         )}
