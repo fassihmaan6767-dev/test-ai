@@ -21,8 +21,8 @@ export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoaderExiting, setIsLoaderExiting] = useState(false);
   const [queries, setQueries] = useState<QueryItem[]>([]);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Lenis smooth scrolling setup
   useEffect(() => {
@@ -52,11 +52,13 @@ export default function Home() {
     
     if (!isChatOpen) setIsChatOpen(true);
     
-    setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', text: userText }]);
+    const userMsgId = `user-${Date.now()}`;
+    setMessages(prev => [...prev, { id: userMsgId, role: 'user', text: userText }]);
     setIsLoading(true);
 
+    // Scroll to the user's message, not to the very bottom
     setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      document.getElementById(userMsgId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 100);
     
     // Check if query directly matches any Firestore database item
@@ -66,6 +68,11 @@ export default function Home() {
       const uLower = userText.toLowerCase();
       return uLower.includes(qLower) || qLower.includes(uLower);
     });
+
+    const startTime = Date.now();
+    let replyText = "";
+    let replyButtonName: string | null = null;
+    let replyButtonLink: string | null = null;
 
     try {
       const response = await fetch('/api/chat', {
@@ -84,17 +91,9 @@ export default function Home() {
 
       const data = await response.json();
       
-      const replyText = data.text || "I am here to craft intelligent digital experiences for your project. What would you like to create next?";
-      const replyButtonName = data.buttonName || (matched ? matched.buttonName : null);
-      const replyButtonLink = data.buttonLink || (matched ? matched.buttonLink : null);
-
-      setMessages(prev => [...prev, { 
-        id: (Date.now() + 1).toString(), 
-        role: 'ai', 
-        text: replyText,
-        buttonName: replyButtonName,
-        buttonLink: replyButtonLink
-      }]);
+      replyText = data.text || "I am here to craft intelligent digital experiences for your project. What would you like to create next?";
+      replyButtonName = data.buttonName || (matched ? matched.buttonName : null);
+      replyButtonLink = data.buttonLink || (matched ? matched.buttonLink : null);
 
       // Log conversation to Firestore in real-time
       saveChatLog({
@@ -109,25 +108,71 @@ export default function Home() {
       console.error("Chat error:", error);
       
       // Fallback graceful message so user always gets a seamless experience
-      const fallbackText = "I am ready to bring your visionary digital project to life with bespoke architecture and refined aesthetics. Let's connect and build something remarkable together.";
-      
-      setMessages(prev => [...prev, { 
-        id: (Date.now() + 1).toString(), 
-        role: 'ai', 
-        text: fallbackText 
-      }]);
+      replyText = "I am ready to bring your visionary digital project to life with bespoke architecture and refined aesthetics. Let's connect and build something remarkable together.";
 
       saveChatLog({
         userMessage: userText,
-        aiResponse: fallbackText,
+        aiResponse: replyText,
         source: 'fallback'
       });
-    } finally {
-      setIsLoading(false);
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      }, 200);
     }
+
+    // Force a minimum 5 seconds display for the cinematic loader
+    const elapsed = Date.now() - startTime;
+    if (elapsed < 5000) {
+      await new Promise(resolve => setTimeout(resolve, 5000 - elapsed));
+    }
+
+    setIsLoaderExiting(true);
+
+    // Wait for the loader's exit animation to complete (1.2s) before showing the text
+    // This prevents text from overlapping the video while it fades out
+    await new Promise(resolve => setTimeout(resolve, 1200));
+    
+    setIsLoaderExiting(false);
+    setIsLoading(false); // Remove loader completely
+
+    setMessages(prev => [...prev, { 
+      id: (Date.now() + 1).toString(), 
+      role: 'ai', 
+      text: replyText,
+      buttonName: replyButtonName,
+      buttonLink: replyButtonLink
+    }]);
+    
+    // Removed the automatic scroll to the bottom here to prevent jumping
+  };
+
+  const renderAnimatedText = (text: string) => {
+    // Split by words keeping whitespace intact
+    const tokens = text.split(/(\s+)/);
+    let wordCount = 0;
+    
+    return (
+      <div className="font-serif text-2xl md:text-3xl leading-snug text-[#1A1A1A] min-h-[1.5em] block">
+        {tokens.map((token, idx) => {
+          if (token.includes('\n')) {
+            return <br key={idx} />;
+          } else if (token.trim() === '') {
+            return <span key={idx}>{token}</span>;
+          } else {
+            const currentIdx = wordCount++;
+            return (
+              <motion.span
+                key={idx}
+                initial={{ opacity: 0, filter: 'blur(12px)', y: 5 }}
+                whileInView={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.9, delay: currentIdx * 0.04, ease: [0.25, 1, 0.5, 1] }}
+                className="inline-block"
+              >
+                {token}
+              </motion.span>
+            );
+          }
+        })}
+      </div>
+    );
   };
 
   return (
@@ -160,6 +205,7 @@ export default function Home() {
                 {messages.map((msg) => (
                   msg.role === 'user' ? (
                      <motion.div
+                        id={msg.id}
                         key={msg.id}
                         initial={{ opacity: 0, y: 50, filter: 'blur(16px)' }}
                         whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
@@ -167,7 +213,7 @@ export default function Home() {
                         transition={{ duration: 1, ease: [0.25, 1, 0.5, 1] }}
                         className="self-end max-w-[90%]"
                      >
-                        <div className="text-[#1A1A1A] font-sans text-2xl md:text-3xl tracking-wide text-right font-light">
+                        <div className="text-[#1A1A1A] font-sans text-2xl md:text-3xl tracking-tight text-right font-medium">
                           {msg.text}
                         </div>
                      </motion.div>
@@ -176,18 +222,7 @@ export default function Home() {
                         key={msg.id}
                         className="self-start max-w-[90%] flex flex-col gap-3"
                      >
-                        {msg.text.split('\n').map((line, i) => (
-                           <motion.div
-                              key={i}
-                              initial={{ opacity: 0, filter: 'blur(10px)', y: 15 }}
-                              whileInView={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
-                              viewport={{ once: false, margin: "-10% 0px -10% 0px" }}
-                              transition={{ duration: 1.8, ease: [0.25, 1, 0.5, 1], delay: i * 0.25 }}
-                              className="font-serif text-2xl md:text-3xl leading-snug text-[#1A1A1A] min-h-[1.5em]"
-                           >
-                             {line}
-                           </motion.div>
-                        ))}
+                        {renderAnimatedText(msg.text)}
 
                         {/* Interactive Database CTA Button if provided */}
                         {msg.buttonName && msg.buttonLink && (
@@ -214,10 +249,9 @@ export default function Home() {
 
                 <AnimatePresence>
                   {isLoading && (
-                    <LoadingAnimation />
+                    <LoadingAnimation isExiting={isLoaderExiting} />
                   )}
                 </AnimatePresence>
-                <div ref={messagesEndRef} className="h-10 w-full shrink-0" />
              </div>
           </motion.div>
         )}
@@ -322,7 +356,7 @@ function SmoothRevealText({ text }: { text: string }) {
   );
 }
 
-function LoadingAnimation() {
+function LoadingAnimation({ isExiting }: { isExiting?: boolean }) {
   const [phase, setPhase] = useState(0);
   
   useEffect(() => {
@@ -338,12 +372,13 @@ function LoadingAnimation() {
   ];
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0, filter: 'blur(20px)', transition: { duration: 1.5, ease: "easeInOut" } }}
-      className="self-center flex flex-col items-center justify-center my-12"
-    >
+    <div className="self-center flex flex-col items-center justify-center my-12 relative w-full">
+      {/* 
+        To fix the white background flash on fade out:
+        We do NOT animate the opacity of the parent container or the video itself, 
+        because animating opacity creates a new stacking context that breaks mix-blend-multiply.
+        Instead, we overlay a div with the background color and fade THAT in to simulate a fade out.
+      */}
       <div className="relative w-full max-w-[600px] lg:max-w-[700px] aspect-video mb-4 rounded-xl overflow-hidden mix-blend-multiply flex justify-center items-center">
         <video
           src="https://cdn.jsdelivr.net/gh/fassihmaan6767-dev/Lottie@main/Untitled%20design.webm"
@@ -355,19 +390,32 @@ function LoadingAnimation() {
           className="w-full h-full object-contain"
         />
       </div>
-      <div className="h-8 relative flex items-center justify-center overflow-hidden w-full max-w-[300px]">
+      
+      {/* Overlay fade-out simulator */}
+      <motion.div
+        initial={{ opacity: 1 }}
+        animate={{ opacity: isExiting ? 1 : 0 }}
+        transition={{ duration: 1.2, ease: "easeInOut" }}
+        className="absolute inset-0 bg-[#ded4c6] pointer-events-none z-10"
+      />
+
+      <div className="h-8 relative flex items-center justify-center overflow-hidden w-full max-w-[300px] z-20">
         <AnimatePresence mode="wait">
-           <motion.div
-             key={phase}
-             exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
-             transition={{ duration: 0.5 }}
-             className="font-serif text-xl font-light text-[#1A1A1A] absolute whitespace-nowrap"
-           >
-             <SmoothRevealText text={phrases[Math.min(phase, phrases.length - 1)] + "..."} />
-           </motion.div>
+          {!isExiting && (
+             <motion.div
+               key={phase}
+               initial={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
+               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+               exit={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
+               transition={{ duration: 0.5 }}
+               className="font-serif text-xl font-light text-[#1A1A1A] absolute whitespace-nowrap"
+             >
+               <SmoothRevealText text={phrases[Math.min(phase, phrases.length - 1)] + "..."} />
+             </motion.div>
+          )}
         </AnimatePresence>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -387,7 +435,7 @@ function AICommandBar({ prompt, setPrompt, onSubmit, theme, isHidden }: { prompt
   useEffect(() => {
     const interval = setInterval(() => {
       setPlaceholderIndex((prev) => (prev + 1) % placeholders.length);
-    }, 2800); // Faster marquee
+    }, 4500); // Slower marquee transition
     return () => clearInterval(interval);
   }, [placeholders.length]);
 
@@ -415,9 +463,9 @@ function AICommandBar({ prompt, setPrompt, onSubmit, theme, isHidden }: { prompt
           `}
         >
           <div className="relative flex-1 h-full mx-2 flex items-center overflow-hidden">
-            <AnimatePresence mode="wait">
-              {!prompt && (
-                <DynamicMarquee key={placeholderIndex} text={placeholders[placeholderIndex]} isFocused={isFocused} isDark={isDark} />
+            <AnimatePresence mode="popLayout">
+              {prompt.length === 0 && (
+                <DynamicMarquee key={placeholderIndex} text={placeholders[placeholderIndex]} isDark={isDark} />
               )}
             </AnimatePresence>
             <input 
@@ -426,7 +474,7 @@ function AICommandBar({ prompt, setPrompt, onSubmit, theme, isHidden }: { prompt
               onChange={(e) => setPrompt(e.target.value)}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
-              className={`w-full h-full bg-transparent outline-none font-sans text-sm tracking-wide z-10 ${isDark ? 'text-white' : 'text-[#1A1A1A]'}`}
+              className={`w-full h-full bg-transparent outline-none font-sans text-base font-medium tracking-wide z-10 relative ${isDark ? 'text-white' : 'text-[#1A1A1A]'}`}
             />
           </div>
 
@@ -446,46 +494,16 @@ function AICommandBar({ prompt, setPrompt, onSubmit, theme, isHidden }: { prompt
   );
 }
 
-function DynamicMarquee({ text, isFocused, isDark }: { text: string, isFocused: boolean, isDark: boolean }) {
-  const [overflow, setOverflow] = useState(0);
-  const textRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (textRef.current && containerRef.current) {
-      const parentWidth = containerRef.current.clientWidth;
-      const textWidth = textRef.current.scrollWidth;
-      if (textWidth > parentWidth) {
-        setOverflow(textWidth - parentWidth + 24);
-      } else {
-        setOverflow(0);
-      }
-    }
-  }, [text, isFocused]);
-
+function DynamicMarquee({ text, isDark }: { text: string, isDark: boolean }) {
   return (
-    <div 
-      ref={containerRef}
-      className="absolute inset-0 flex items-center pointer-events-none overflow-hidden"
-      style={{
-        maskImage: 'linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%)',
-        WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%)'
-      }}
+    <motion.div
+      initial={{ opacity: 0, y: 15, filter: 'blur(12px)' }}
+      animate={{ opacity: 0.7, y: 0, filter: 'blur(0px)' }}
+      exit={{ opacity: 0, y: -15, filter: 'blur(12px)' }}
+      transition={{ duration: 1.2, ease: [0.25, 1, 0.5, 1] }}
+      className={`absolute inset-0 flex items-center font-sans text-base tracking-wide px-1 pointer-events-none whitespace-nowrap truncate ${isDark ? 'text-white' : 'text-[#1A1A1A]'}`}
     >
-      <motion.div
-        ref={textRef}
-        initial={{ opacity: 0, filter: 'blur(8px)', x: 0 }}
-        animate={{ 
-          opacity: [0, 0.6, 0.6, 0.6, 0],
-          filter: ['blur(8px)', 'blur(0px)', 'blur(0px)', 'blur(0px)', 'blur(8px)'],
-          x: (!isFocused && overflow > 0) ? [0, 0, -overflow, -overflow, 0] : 0
-        }}
-        exit={{ opacity: 0, filter: 'blur(8px)', x: 0 }}
-        transition={{ duration: 2.8, ease: "easeInOut", times: [0, 0.15, 0.5, 0.85, 1] }}
-        className={`font-sans text-sm tracking-wide whitespace-nowrap px-1 ${isDark ? 'text-white' : 'text-[#1A1A1A]'}`}
-      >
-        {text}
-      </motion.div>
-    </div>
+      {text}
+    </motion.div>
   );
 }

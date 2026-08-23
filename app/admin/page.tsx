@@ -104,8 +104,13 @@ export default function AdminDashboard() {
     setAuthError('');
     setAuthSubmitting(true);
     try {
-      await signInWithPopup(auth, googleProvider);
-      showToast('Logged in with Google successfully');
+      const result = await signInWithPopup(auth, googleProvider);
+      if (result.user.email !== 'talkwithfasih@gmail.com') {
+        await signOut(auth);
+        setAuthError('Access Denied: Only Admin (talkwithfasih@gmail.com) can log in.');
+      } else {
+        showToast('Logged in with Google successfully');
+      }
     } catch (err: any) {
       console.error(err);
       setAuthError(err.message || 'Google Sign-in failed. Ensure Google is enabled in Firebase Console.');
@@ -117,6 +122,12 @@ export default function AdminDashboard() {
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
+    
+    if (email.toLowerCase() !== 'talkwithfasih@gmail.com') {
+      setAuthError('Access Denied: Only Admin (talkwithfasih@gmail.com) can register or log in.');
+      return;
+    }
+    
     setAuthSubmitting(true);
 
     try {
@@ -136,6 +147,26 @@ export default function AdminDashboard() {
       }
     } finally {
       setAuthSubmitting(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setAuthError('Please enter your email address first to reset password.');
+      return;
+    }
+    if (email.toLowerCase() !== 'talkwithfasih@gmail.com') {
+      setAuthError('Password reset is only available for the Admin email.');
+      return;
+    }
+    try {
+      const { sendPasswordResetEmail } = await import('firebase/auth');
+      await sendPasswordResetEmail(auth, email);
+      showToast('Password reset email sent to ' + email);
+      setAuthError('');
+    } catch (err: any) {
+      console.error(err);
+      setAuthError(err.message || 'Failed to send password reset email.');
     }
   };
 
@@ -366,9 +397,21 @@ export default function AdminDashboard() {
             >
               {authSubmitting ? 'Authenticating...' : authMode === 'signup' ? 'Create Admin Account' : 'Sign In to Dashboard'}
             </button>
+
+            {authMode === 'login' && (
+              <div className="text-right mt-1">
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="text-[11px] text-[#6B5E52] hover:text-[#1A1A1A] underline cursor-pointer"
+                >
+                  Forgot Password?
+                </button>
+              </div>
+            )}
           </form>
 
-          <div className="mt-4 text-center">
+          <div className="mt-4 text-center border-t border-[#dfd2c0] pt-4">
             {authMode === 'login' ? (
               <button 
                 onClick={() => setAuthMode('signup')}
