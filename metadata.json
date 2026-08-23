@@ -1,0 +1,8 @@
+{
+  "name": "Remix Maison AI Boutique",
+  "description": "Ultra-luxury AI-driven conversational shopping experience prototype.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
