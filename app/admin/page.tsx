@@ -208,17 +208,12 @@ export default function AdminDashboard() {
     setAuthSubmitting(true);
 
     try {
-      if (authMode === 'signup') {
-        await createUserWithEmailAndPassword(auth, email, password);
-        showToast('Account created successfully');
-      } else {
-        await signInWithEmailAndPassword(auth, email, password);
-        showToast('Welcome back to Admin Portal');
-      }
+      await signInWithEmailAndPassword(auth, email, password);
+      showToast('Welcome back to Admin Portal');
     } catch (err: any) {
       console.error(err);
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found') {
-        setAuthError('User not found. Switch to "Create Account" if first time.');
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+        setAuthError('Invalid credentials. Please verify your email and password.');
       } else {
         setAuthError(err.message || 'Authentication failed');
       }
@@ -500,39 +495,19 @@ export default function AdminDashboard() {
             disabled={authSubmitting}
             className="w-full py-3 bg-[#241E1A] hover:bg-[#3D332D] text-white rounded-xl text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 mt-2 shadow-sm"
           >
-            {authSubmitting ? 'Authenticating...' : authMode === 'signup' ? 'Create Admin Account' : 'Sign In to Dashboard'}
+            {authSubmitting ? 'Authenticating...' : 'Sign In to Dashboard'}
           </button>
 
-          {authMode === 'login' && (
-            <div className="text-right mt-1">
-              <button
-                type="button"
-                onClick={() => setAuthMode('forgot')}
-                className="text-[11px] text-[#6B5E52] hover:text-[#1A1A1A] underline cursor-pointer"
-              >
-                Forgot Password?
-              </button>
-            </div>
-          )}
+          <div className="text-right mt-2">
+            <button
+              type="button"
+              onClick={() => setAuthMode('forgot')}
+              className="text-[11px] text-[#6B5E52] hover:text-[#1A1A1A] underline cursor-pointer"
+            >
+              Forgot Password?
+            </button>
+          </div>
         </form>
-
-        <div className="mt-4 text-center border-t border-[#dfd2c0] pt-4">
-          {authMode === 'login' ? (
-            <button 
-              onClick={() => setAuthMode('signup')}
-              className="text-xs text-[#6B5E52] hover:text-[#1A1A1A] underline cursor-pointer"
-            >
-              First time? Create Admin Account
-            </button>
-          ) : (
-            <button 
-              onClick={() => setAuthMode('login')}
-              className="text-xs text-[#6B5E52] hover:text-[#1A1A1A] underline cursor-pointer"
-            >
-              Already have an account? Sign In
-            </button>
-          )}
-        </div>
       </>
     );
   };
