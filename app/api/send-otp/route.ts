@@ -7,7 +7,7 @@ export async function POST(req: Request) {
 
     if (!process.env.GMAIL_APP_PASSWORD) {
        console.log('No GMAIL_APP_PASSWORD found. Emulated success. OTP:', otp);
-       return NextResponse.json({ success: true, warning: 'No GMAIL_APP_PASSWORD found in Vercel. OTP generated successfully but not sent to inbox.' });
+       return NextResponse.json({ error: 'GMAIL_APP_PASSWORD is not set in Vercel Environment Variables. Please add it to send emails.' }, { status: 400 });
     }
 
     const transporter = nodemailer.createTransport({

@@ -21,7 +21,9 @@ import {
   RefreshCw,
   ShieldCheck,
   Zap,
-  Key
+  Key,
+  Image as ImageIcon,
+  MousePointerClick
 } from 'lucide-react';
 import Link from 'next/link';
 import { 
@@ -43,8 +45,12 @@ import {
   createUserWithEmailAndPassword,
   signOut, 
   onAuthStateChanged, 
+  sendPasswordResetEmail,
   User 
 } from 'firebase/auth';
+
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export default function AdminDashboard() {
   const [user, setUser] = useState<User | null>(null);
@@ -149,6 +155,26 @@ export default function AdminDashboard() {
     };
   }, []);
 
+  const openNewQueryModal = () => {
+    setEditingId(null);
+    setFormTopic('');
+    setFormUserQuery('');
+    setFormAnswer('');
+    setFormButtonName('');
+    setFormButtonLink('');
+    setIsModalOpen(true);
+  };
+
+  const openEditQueryModal = (item: QueryItem) => {
+    setEditingId(item.id || null);
+    setFormTopic(item.topic);
+    setFormUserQuery(item.userQuery);
+    setFormAnswer(item.answer);
+    setFormButtonName(item.buttonName || '');
+    setFormButtonLink(item.buttonLink || '');
+    setIsModalOpen(true);
+  };
+
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (!user) return; // Only apply if authenticated
@@ -208,8 +234,14 @@ export default function AdminDashboard() {
     setAuthSubmitting(true);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      showToast('Welcome back to Admin Portal');
+      if (authMode === 'forgot') {
+        await sendPasswordResetEmail(auth, email);
+        showToast('Password reset link sent to your email');
+        setAuthMode('login');
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+        showToast('Welcome back to Admin Portal');
+      }
     } catch (err: any) {
       console.error(err);
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
@@ -247,7 +279,7 @@ export default function AdminDashboard() {
     showToast('Signed out');
   };
 
-  const applyFormatting = (tag: 'bold' | 'italic' | 'bullet' | 'code' | 'heading') => {
+  const applyFormatting = (tag: 'bold' | 'italic' | 'bullet' | 'code' | 'heading' | 'image' | 'button') => {
     const textarea = answerTextareaRef.current;
     if (!textarea) return;
 
@@ -272,6 +304,23 @@ export default function AdminDashboard() {
       case 'heading':
         replacement = `\n### ${selectedText || 'Heading'}\n`;
         break;
+      case 'image': {
+        const url = window.prompt('Enter Image URL (Firestore / external link):');
+        if (url) {
+          replacement = `\n![Image](${url})\n`;
+        } else {
+          return; // Cancelled
+        }
+        break;
+      }
+      case 'button': {
+        const btnUrl = window.prompt('Enter Button URL:');
+        if (!btnUrl) return;
+        const btnText = window.prompt('Enter Button Text:', selectedText || 'Click Here');
+        if (!btnText) return;
+        replacement = `\n[button:${btnText}](${btnUrl})\n`;
+        break;
+      }
     }
 
     const newText = formAnswer.substring(0, start) + replacement + formAnswer.substring(end);
@@ -280,26 +329,6 @@ export default function AdminDashboard() {
       textarea.focus();
       textarea.setSelectionRange(start + replacement.length, start + replacement.length);
     }, 50);
-  };
-
-  const openNewQueryModal = () => {
-    setEditingId(null);
-    setFormTopic('');
-    setFormUserQuery('');
-    setFormAnswer('');
-    setFormButtonName('');
-    setFormButtonLink('');
-    setIsModalOpen(true);
-  };
-
-  const openEditQueryModal = (item: QueryItem) => {
-    setEditingId(item.id || null);
-    setFormTopic(item.topic);
-    setFormUserQuery(item.userQuery);
-    setFormAnswer(item.answer);
-    setFormButtonName(item.buttonName || '');
-    setFormButtonLink(item.buttonLink || '');
-    setIsModalOpen(true);
   };
 
   const handleSaveQuery = async (e: React.FormEvent) => {
@@ -359,17 +388,28 @@ export default function AdminDashboard() {
   });
 
   const renderFormattedPreview = (text: string) => {
-    const formatted = text
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/`([^`]+)`/g, '<code class="bg-[#e2d7c9] px-1 py-0.5 rounded text-xs">$1</code>')
-      .replace(/• (.*)/g, '<li class="ml-4 list-disc">$1</li>');
-
     return (
-      <div 
-        className="font-serif text-sm leading-relaxed text-[#2C2621]"
-        dangerouslySetInnerHTML={{ __html: formatted }}
-      />
+      <div className="font-serif text-sm leading-relaxed text-[#2C2621] prose prose-sm max-w-none prose-headings:font-sans prose-headings:font-normal prose-a:text-blue-600 prose-img:rounded-xl">
+        <Markdown 
+          remarkPlugins={[remarkGfm]}
+          components={{
+            a: ({node, ...props}) => {
+              const text = String(props.children);
+              if (text.startsWith('button:')) {
+                const btnText = text.replace('button:', '');
+                return (
+                  <a href={props.href} target="_blank" rel="noopener noreferrer" className="group relative inline-flex items-center gap-2 px-4 py-2 bg-[#1A1A1A] text-[#ded4c6] rounded-full text-xs font-sans tracking-wider overflow-hidden no-underline mt-2 mb-1">
+                    <span className="relative z-10 font-medium">{btnText}</span>
+                  </a>
+                );
+              }
+              return <a {...props} target="_blank" rel="noopener noreferrer" className="underline">{props.children}</a>;
+            }
+          }}
+        >
+          {text}
+        </Markdown>
+      </div>
     );
   };
 
@@ -989,6 +1029,22 @@ service cloud.firestore {
                         title="Heading"
                       >
                         <Heading1 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyFormatting('image')}
+                        className="p-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer"
+                        title="Add Image"
+                      >
+                        <ImageIcon className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyFormatting('button')}
+                        className="p-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer"
+                        title="Add Button"
+                      >
+                        <MousePointerClick className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>

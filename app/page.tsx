@@ -7,6 +7,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import Lenis from 'lenis';
 import { subscribeToQueries, saveChatLog, QueryItem } from '@/lib/firebase';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ChatMessage {
   id: string;
@@ -43,6 +45,15 @@ export default function Home() {
     return () => unsub();
   }, []);
 
+  // Auto-scroll to bottom of chat
+  useEffect(() => {
+    if (isChatOpen) {
+      setTimeout(() => {
+        document.getElementById('chat-bottom-ref')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }, 100);
+    }
+  }, [messages, isLoading, isChatOpen]);
+
   const handleAISubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim() || isLoading) return;
@@ -55,11 +66,6 @@ export default function Home() {
     const userMsgId = `user-${Date.now()}`;
     setMessages(prev => [...prev, { id: userMsgId, role: 'user', text: userText }]);
     setIsLoading(true);
-
-    // Scroll to the user's message, not to the very bottom
-    setTimeout(() => {
-      document.getElementById(userMsgId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 100);
     
     // Check if query directly matches any Firestore database item
     const matched = queries.find(q => {
@@ -144,44 +150,36 @@ export default function Home() {
   };
 
   const renderAnimatedText = (text: string) => {
-    // Basic markdown bold parsing
-    const parts = text.split(/(\*\*.*?\*\*)/);
-    let wordCount = 0;
-    
     return (
-      <div className="font-serif text-2xl md:text-3xl leading-snug text-[#1A1A1A] min-h-[1.5em] block">
-        {parts.map((part, pIdx) => {
-          const isBold = part.startsWith('**') && part.endsWith('**');
-          const cleanText = isBold ? part.slice(2, -2) : part;
-          const tokens = cleanText.split(/(\s+)/);
-          
-          return (
-            <span key={pIdx} className={isBold ? "font-bold font-sans tracking-tight" : ""}>
-              {tokens.map((token, tIdx) => {
-                if (token.includes('\n')) {
-                  return <br key={tIdx} />;
-                } else if (token.trim() === '') {
-                  return <span key={tIdx}>{token}</span>;
-                } else {
-                  const currentIdx = wordCount++;
-                  return (
-                    <motion.span
-                      key={tIdx}
-                      initial={{ opacity: 0, filter: 'blur(12px)', y: 5 }}
-                      whileInView={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.9, delay: currentIdx * 0.04, ease: [0.25, 1, 0.5, 1] }}
-                      className="inline-block"
-                    >
-                      {token}
-                    </motion.span>
-                  );
-                }
-              })}
-            </span>
-          );
-        })}
-      </div>
+      <motion.div 
+        className="font-serif text-xl md:text-2xl leading-relaxed text-[#1A1A1A] min-h-[1.5em] prose prose-lg prose-headings:font-sans prose-headings:font-medium prose-headings:tracking-tight prose-a:text-blue-600 prose-img:rounded-2xl max-w-none"
+        initial={{ opacity: 0, filter: 'blur(12px)', y: 10 }}
+        whileInView={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 1.2, ease: [0.25, 1, 0.5, 1] }}
+      >
+        <Markdown 
+          remarkPlugins={[remarkGfm]}
+          components={{
+            a: ({node, ...props}) => {
+              const text = String(props.children);
+              if (text.startsWith('button:')) {
+                const btnText = text.replace('button:', '');
+                return (
+                  <a href={props.href} target="_blank" rel="noopener noreferrer" className="group relative inline-flex items-center gap-3 px-8 py-4 bg-[#1A1A1A] text-[#ded4c6] rounded-full text-sm font-sans tracking-wider overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.15)] transition-all hover:scale-105 hover:shadow-[0_15px_50px_rgba(0,0,0,0.25)] no-underline mt-4 mb-2">
+                    <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-[0.25,1,0.5,1] rounded-full pointer-events-none" />
+                    <span className="relative z-10 font-medium">{btnText}</span>
+                    <ExternalLink className="w-4 h-4 relative z-10 transition-transform duration-500 group-hover:translate-x-1 group-hover:-translate-y-1" />
+                  </a>
+                );
+              }
+              return <a {...props} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4 decoration-black/20 hover:decoration-black">{props.children}</a>;
+            }
+          }}
+        >
+          {text}
+        </Markdown>
+      </motion.div>
     );
   };
 
@@ -205,7 +203,8 @@ export default function Home() {
       <AnimatePresence>
         {isChatOpen && (
           <motion.div
-            className="absolute top-0 left-0 w-full min-h-screen z-40 bg-[#ded4c6]"
+            className="fixed inset-0 w-full h-screen z-40 bg-[#ded4c6] overflow-y-auto"
+            data-lenis-prevent
             initial={{ opacity: 0, filter: 'blur(20px)' }}
             animate={{ opacity: 1, filter: 'blur(0px)' }}
             exit={{ opacity: 0, filter: 'blur(20px)', transition: { duration: 0.6 } }}
@@ -267,6 +266,7 @@ export default function Home() {
                     <LoadingAnimation isExiting={isLoaderExiting} />
                   )}
                 </AnimatePresence>
+                <div id="chat-bottom-ref" className="h-1" />
              </div>
           </motion.div>
         )}
