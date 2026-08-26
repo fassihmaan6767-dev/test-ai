@@ -22,7 +22,6 @@ import { subscribeToQueries, saveChatLog, QueryItem } from '@/lib/firebase';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
-import CanvasEditor from '@/components/CanvasEditor';
 
 interface ChatMessage {
   id: string;
@@ -218,14 +217,21 @@ export default function Home() {
       const altStr = String(props.alt || '');
       const isFloatLeft = altStr.toLowerCase().includes('float-left') || altStr.toLowerCase().includes('left');
       const isFloatRight = altStr.toLowerCase().includes('float-right') || altStr.toLowerCase().includes('right');
-      const cleanAlt = altStr.replace(/^(float-left|float-right|center|left|right):?/i, '').trim();
+      
+      // Extract size if present: e.g. float-left|size:200px:Caption
+      const sizeMatch = altStr.match(/\|size:([^:]+)/i);
+      const imgWidth = sizeMatch ? sizeMatch[1] : '';
+      
+      let cleanAlt = altStr.replace(/^(float-left|float-right|center|left|right)/i, '');
+      cleanAlt = cleanAlt.replace(/\|size:[^:]+/, '');
+      cleanAlt = cleanAlt.replace(/^:/, '').trim();
 
       let align: 'left' | 'right' | 'center' = 'center';
       if (isFloatLeft) align = 'left';
       else if (isFloatRight) align = 'right';
 
       return (
-        <motion.div variants={itemVariants} className="inline-block">
+        <motion.div variants={itemVariants} className={`inline-block my-6 clear-both mx-auto block ${align === 'left' ? 'md:float-left md:mr-8 md:mx-0 clear-left' : align === 'right' ? 'md:float-right md:ml-8 md:mx-0 clear-right' : ''}`} style={imgWidth ? { maxWidth: imgWidth, width: '100%' } : align !== 'center' ? { maxWidth: '300px', width: '100%' } : {}}>
           <ImageShowcase 
             src={srcStr} 
             alt={cleanAlt} 
@@ -257,30 +263,6 @@ export default function Home() {
   }), [setLightboxImage]);
 
   const renderAnimatedText = (text: string) => {
-    let isCanvas = false;
-    try {
-      const parsed = JSON.parse(text);
-      if (Array.isArray(parsed)) {
-        isCanvas = true;
-      }
-    } catch (e) {
-      // not json
-    }
-
-    if (isCanvas) {
-      return (
-        <motion.div 
-          className="w-full relative rounded-2xl overflow-hidden min-h-[400px] shadow-sm border border-[#e4d8c7]"
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: false, margin: "0px 0px -5% 0px" }}
-        >
-          <CanvasEditor value={text} onChange={() => {}} readOnly />
-        </motion.div>
-      );
-    }
-
     return (
       <motion.div 
         className="font-serif text-xl md:text-2xl leading-relaxed text-[#1A1A1A] min-h-[1.5em] prose prose-lg prose-headings:font-sans prose-headings:font-medium prose-headings:tracking-tight prose-a:text-blue-600 max-w-none clearfix"

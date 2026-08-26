@@ -89,7 +89,11 @@ export async function POST(req: Request) {
         emailSent = true;
       } catch (smtpErr: any) {
         console.error('Nodemailer Error:', smtpErr);
-        lastErrorMessage = smtpErr?.message;
+        if (smtpErr.message?.includes('535-5.7.8')) {
+          lastErrorMessage = 'Gmail SMTP Authentication Failed: You are using your normal Gmail password. You must generate a "Google App Password" (a 16-character code) from your Google Account Security settings and put THAT into the GMAIL_APP_PASSWORD environment variable.';
+        } else {
+          lastErrorMessage = smtpErr?.message;
+        }
       }
     }
 

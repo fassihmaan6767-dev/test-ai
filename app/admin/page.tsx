@@ -60,7 +60,6 @@ import {
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
-import CanvasEditor from '@/components/CanvasEditor';
 
 export default function AdminDashboard() {
   const [user, setUser] = useState<User | null>(null);
@@ -363,22 +362,28 @@ export default function AdminDashboard() {
       case 'img-left': {
         const url = window.prompt('Enter Image URL (Float Left - text will wrap around the right):');
         if (!url) return;
+        const width = window.prompt('Enter Image Width (e.g. 200px, 100%, or leave blank for default):', '200px');
         const caption = window.prompt('Enter Image Caption / Description (optional):', selectedText || '');
-        replacement = `\n![float-left:${caption || 'Image'}](${url.trim()})\n`;
+        const sizeStr = width ? `|size:${width}` : '';
+        replacement = `\n![float-left${sizeStr}:${caption || 'Image'}](${url.trim()})\n`;
         break;
       }
       case 'img-center': {
         const url = window.prompt('Enter Image URL (Centered Block):');
         if (!url) return;
+        const width = window.prompt('Enter Image Width (e.g. 400px, 100%, or leave blank for default):', '');
         const caption = window.prompt('Enter Image Caption / Description (optional):', selectedText || '');
-        replacement = `\n![center:${caption || 'Image'}](${url.trim()})\n`;
+        const sizeStr = width ? `|size:${width}` : '';
+        replacement = `\n![center${sizeStr}:${caption || 'Image'}](${url.trim()})\n`;
         break;
       }
       case 'img-right': {
         const url = window.prompt('Enter Image URL (Float Right - text will wrap around the left):');
         if (!url) return;
+        const width = window.prompt('Enter Image Width (e.g. 200px, 100%, or leave blank for default):', '200px');
         const caption = window.prompt('Enter Image Caption / Description (optional):', selectedText || '');
-        replacement = `\n![float-right:${caption || 'Image'}](${url.trim()})\n`;
+        const sizeStr = width ? `|size:${width}` : '';
+        replacement = `\n![float-right${sizeStr}:${caption || 'Image'}](${url.trim()})\n`;
         break;
       }
       case 'space':
@@ -473,24 +478,6 @@ export default function AdminDashboard() {
   });
 
   const renderFormattedPreview = (text: string) => {
-    let isCanvas = false;
-    try {
-      const parsed = JSON.parse(text);
-      if (Array.isArray(parsed)) {
-        isCanvas = true;
-      }
-    } catch (e) {
-      // not json
-    }
-
-    if (isCanvas) {
-      return (
-        <div className="h-[250px] w-full relative border border-[#e4d8c7] rounded-xl overflow-hidden">
-          <CanvasEditor value={text} onChange={() => {}} readOnly />
-        </div>
-      );
-    }
-
     return (
       <div className="font-serif text-sm leading-relaxed text-[#2C2621] prose prose-sm max-w-none prose-headings:font-sans prose-headings:font-semibold prose-a:text-blue-600 overflow-hidden clearfix">
         <Markdown 
@@ -506,23 +493,32 @@ export default function AdminDashboard() {
               const isFloatLeft = altStr.toLowerCase().includes('float-left') || altStr.toLowerCase().includes('left');
               const isFloatRight = altStr.toLowerCase().includes('float-right') || altStr.toLowerCase().includes('right');
               const isPng = srcStr.toLowerCase().includes('.png') || srcStr.toLowerCase().includes('image/png');
-              const cleanAlt = altStr.replace(/^(float-left|float-right|center|left|right):?/i, '').trim();
+              
+              // Extract size if present: e.g. float-left|size:200px:Caption
+              const sizeMatch = altStr.match(/\|size:([^:]+)/i);
+              const imgWidth = sizeMatch ? sizeMatch[1] : '';
+              
+              // Clean up alt text
+              let cleanAlt = altStr.replace(/^(float-left|float-right|center|left|right)/i, '');
+              cleanAlt = cleanAlt.replace(/\|size:[^:]+/, '');
+              cleanAlt = cleanAlt.replace(/^:/, '').trim();
 
               let floatClasses = "my-3 block clear-both mx-auto";
               if (isFloatLeft) {
-                floatClasses = "float-left mr-4 mb-3 max-w-[200px] clear-left";
+                floatClasses = "float-left mr-4 mb-3 clear-left";
               } else if (isFloatRight) {
-                floatClasses = "float-right ml-4 mb-3 max-w-[200px] clear-right";
+                floatClasses = "float-right ml-4 mb-3 clear-right";
               }
 
               return (
-                <figure className={`not-prose ${floatClasses}`}>
-                  <div className="relative inline-block rounded-xl overflow-hidden border border-[#d6c7b4] bg-transparent p-1 shadow-sm">
+                <figure className={`not-prose ${floatClasses}`} style={imgWidth ? { maxWidth: imgWidth, width: '100%' } : isFloatLeft || isFloatRight ? { maxWidth: '200px' } : {}}>
+                  <div className="relative inline-block rounded-xl overflow-hidden border border-[#d6c7b4] bg-transparent p-1 shadow-sm w-full">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={srcStr}
                       alt={cleanAlt || 'Preview'}
-                      className="max-h-[190px] w-auto max-w-full object-contain rounded-lg bg-transparent"
+                      className="w-full h-auto object-contain rounded-lg bg-transparent"
+                      style={imgWidth ? { maxWidth: imgWidth } : { maxHeight: '400px' }}
                       loading="lazy"
                     />
                     {isFloatLeft && (
@@ -1136,13 +1132,156 @@ service cloud.firestore {
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="block text-xs font-semibold text-[#4A3E33]">
-                      Answer (AI Output - Canvas Editor)
+                      Answer (AI Output - Formatted Markdown)
                     </label>
+                    
+                    <div className="flex flex-wrap items-center gap-1.5 bg-[#ede3d5] p-1.5 rounded-xl border border-[#ded1c0]">
+                      {/* Headings */}
+                      <div className="flex items-center gap-0.5 bg-white/60 p-0.5 rounded-lg">
+                        <button
+                          type="button"
+                          onClick={() => applyFormatting('h1')}
+                          className="px-2 py-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer text-xs font-bold font-sans"
+                          title="Heading 1 (# Heading)"
+                        >
+                          H1
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyFormatting('h2')}
+                          className="px-2 py-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer text-xs font-bold font-sans"
+                          title="Heading 2 (## Heading)"
+                        >
+                          H2
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyFormatting('h3')}
+                          className="px-2 py-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer text-xs font-bold font-sans"
+                          title="Heading 3 (### Heading)"
+                        >
+                          H3
+                        </button>
+                      </div>
+
+                      {/* Text Styles */}
+                      <div className="flex items-center gap-0.5 bg-white/60 p-0.5 rounded-lg">
+                        <button
+                          type="button"
+                          onClick={() => applyFormatting('bold')}
+                          className="p-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer"
+                          title="Bold (**text**)"
+                        >
+                          <Bold className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyFormatting('italic')}
+                          className="p-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer"
+                          title="Italic (*text*)"
+                        >
+                          <Italic className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyFormatting('bullet')}
+                          className="p-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer"
+                          title="Bullet List (• Item)"
+                        >
+                          <List className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyFormatting('code')}
+                          className="p-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer"
+                          title="Code snippet (`code`)"
+                        >
+                          <Code className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Floating Image Tools */}
+                      <div className="flex items-center gap-0.5 bg-white/60 p-0.5 rounded-lg">
+                        <button
+                          type="button"
+                          onClick={() => applyFormatting('img-left')}
+                          className="flex items-center gap-1 px-2 py-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer text-[11px] font-medium"
+                          title="Image Float Left (Text wraps around the right side of image)"
+                        >
+                          <AlignLeft className="w-3.5 h-3.5 text-[#8A7B6E]" />
+                          <span>Img Left</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyFormatting('img-center')}
+                          className="flex items-center gap-1 px-2 py-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer text-[11px] font-medium"
+                          title="Image Centered Block"
+                        >
+                          <AlignCenter className="w-3.5 h-3.5 text-[#8A7B6E]" />
+                          <span>Img Center</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyFormatting('img-right')}
+                          className="flex items-center gap-1 px-2 py-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer text-[11px] font-medium"
+                          title="Image Float Right (Text wraps around the left side of image)"
+                        >
+                          <AlignRight className="w-3.5 h-3.5 text-[#8A7B6E]" />
+                          <span>Img Right</span>
+                        </button>
+                      </div>
+
+                      {/* Layout Tools: Spacing & Clear */}
+                      <div className="flex items-center gap-0.5 bg-white/60 p-0.5 rounded-lg">
+                        <button
+                          type="button"
+                          onClick={() => applyFormatting('space')}
+                          className="flex items-center gap-1 px-2 py-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer text-[11px] font-medium"
+                          title="Insert Vertical Gap / Line Space"
+                        >
+                          <MoveVertical className="w-3.5 h-3.5 text-[#8A7B6E]" />
+                          <span>+ Space</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyFormatting('clear')}
+                          className="flex items-center gap-1 px-2 py-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer text-[11px] font-medium"
+                          title="Clear Float Wrapping (Starts fresh line below image)"
+                        >
+                          <Minus className="w-3.5 h-3.5 text-[#8A7B6E]" />
+                          <span>Clear Wrap</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyFormatting('button')}
+                          className="flex items-center gap-1 px-2 py-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer text-[11px] font-medium"
+                          title="Insert CTA Button"
+                        >
+                          <MousePointerClick className="w-3.5 h-3.5 text-[#8A7B6E]" />
+                          <span>Button</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div className="h-[450px] w-full relative">
-                    <CanvasEditor value={formAnswer} onChange={setFormAnswer} />
-                  </div>
+
+                  <textarea
+                    ref={answerTextareaRef}
+                    required
+                    rows={8}
+                    placeholder="Write the exact response for this inquiry. You can use the formatting toolbar."
+                    value={formAnswer}
+                    onChange={(e) => setFormAnswer(e.target.value)}
+                    className="w-full p-3.5 bg-white border border-[#d6c7b4] rounded-xl text-sm outline-none focus:border-[#4A3E33] font-serif leading-relaxed"
+                  />
+
+                  {formAnswer && (
+                    <div className="mt-2 p-3 bg-[#f2ece2] rounded-xl border border-[#e4d8c7]">
+                      <span className="text-[10px] uppercase tracking-wider font-semibold text-[#8A7B6E] block mb-1">
+                        Live Visual Preview:
+                      </span>
+                      {renderFormattedPreview(formAnswer)}
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-4 bg-[#f2ece2] rounded-xl border border-[#ded1c0] space-y-3">
