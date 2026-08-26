@@ -305,12 +305,10 @@ export default function AdminDashboard() {
         replacement = `\n### ${selectedText || 'Heading'}\n`;
         break;
       case 'image': {
-        const url = window.prompt('Enter Image URL (Firestore / external link):');
-        if (url) {
-          replacement = `\n![Image](${url})\n`;
-        } else {
-          return; // Cancelled
-        }
+        const url = window.prompt('Enter Image URL (PNG, WebP, JPG or transparent cutout):');
+        if (!url) return;
+        const caption = window.prompt('Enter Image Caption / Alt Text (optional):', selectedText || '');
+        replacement = `\n![${caption || 'Visual display'}](${url.trim()})\n`;
         break;
       }
       case 'button': {
@@ -389,10 +387,38 @@ export default function AdminDashboard() {
 
   const renderFormattedPreview = (text: string) => {
     return (
-      <div className="font-serif text-sm leading-relaxed text-[#2C2621] prose prose-sm max-w-none prose-headings:font-sans prose-headings:font-normal prose-a:text-blue-600 prose-img:rounded-xl">
+      <div className="font-serif text-sm leading-relaxed text-[#2C2621] prose prose-sm max-w-none prose-headings:font-sans prose-headings:font-normal prose-a:text-blue-600">
         <Markdown 
           remarkPlugins={[remarkGfm]}
           components={{
+            img: ({ node, ...props }) => {
+              const srcStr = String(props.src || '');
+              const altStr = String(props.alt || '');
+              const isPng = srcStr.toLowerCase().includes('.png') || srcStr.toLowerCase().includes('image/png');
+              return (
+                <figure className="my-3 block not-prose">
+                  <div className="relative inline-block rounded-xl overflow-hidden border border-[#d6c7b4] bg-transparent p-1 shadow-sm">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={srcStr}
+                      alt={altStr || 'Preview'}
+                      className="max-h-[240px] w-auto max-w-full object-contain rounded-lg bg-transparent"
+                      loading="lazy"
+                    />
+                    {isPng && (
+                      <span className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm text-white text-[9px] font-sans px-2 py-0.5 rounded-full font-medium">
+                        PNG • Transparent
+                      </span>
+                    )}
+                  </div>
+                  {altStr && altStr !== 'Image' && altStr !== 'image' && altStr !== 'Visual display' && (
+                    <figcaption className="text-[11px] text-[#8A7B6E] mt-1 font-sans">
+                      {altStr}
+                    </figcaption>
+                  )}
+                </figure>
+              );
+            },
             a: ({node, ...props}) => {
               const text = String(props.children);
               if (text.startsWith('button:')) {

@@ -1,8 +1,20 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowRight, X, ExternalLink, Shield } from 'lucide-react';
+import { 
+  ArrowRight, 
+  X, 
+  ExternalLink, 
+  Shield, 
+  ZoomIn, 
+  Download, 
+  Copy, 
+  Check, 
+  Sparkles,
+  Maximize2,
+  Image as ImageIcon
+} from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import Lenis from 'lenis';
@@ -18,6 +30,21 @@ interface ChatMessage {
   buttonLink?: string | null;
 }
 
+const containerVariants: any = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.15
+    }
+  }
+};
+
+const itemVariants: any = {
+  hidden: { opacity: 0, filter: 'blur(12px)', y: 15 },
+  show: { opacity: 1, filter: 'blur(0px)', y: 0, transition: { duration: 1, ease: [0.25, 1, 0.5, 1] } }
+};
+
 export default function Home() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -25,6 +52,9 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoaderExiting, setIsLoaderExiting] = useState(false);
   const [queries, setQueries] = useState<QueryItem[]>([]);
+  const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [lightboxBg, setLightboxBg] = useState<'dark' | 'linen' | 'checker'>('dark');
 
   // Lenis smooth scrolling setup
   useEffect(() => {
@@ -149,38 +179,85 @@ export default function Home() {
     // Removed the automatic scroll to the bottom here to prevent jumping
   };
 
+  const markdownComponents = useMemo(() => ({
+    p: ({node, ...props}: any) => (
+      <motion.p variants={itemVariants} {...props} />
+    ),
+    h1: ({node, ...props}: any) => (
+      <motion.h1 variants={itemVariants} {...props} />
+    ),
+    h2: ({node, ...props}: any) => (
+      <motion.h2 variants={itemVariants} {...props} />
+    ),
+    h3: ({node, ...props}: any) => (
+      <motion.h3 variants={itemVariants} {...props} />
+    ),
+    li: ({node, ...props}: any) => (
+      <motion.li variants={itemVariants} {...props} />
+    ),
+    img: ({ node, ...props }: any) => {
+      return (
+        <motion.div variants={itemVariants}>
+          <ImageShowcase 
+            src={String(props.src || '')} 
+            alt={String(props.alt || '')} 
+            onOpenLightbox={(src, alt) => setLightboxImage({ src, alt })} 
+          />
+        </motion.div>
+      );
+    },
+    a: ({node, ...props}: any) => {
+      const text = String(props.children);
+      if (text.startsWith('button:')) {
+        const btnText = text.replace('button:', '');
+        return (
+          <motion.a 
+            variants={itemVariants}
+            href={props.href} target="_blank" rel="noopener noreferrer" className="group relative inline-flex items-center gap-3 px-8 py-4 bg-[#1A1A1A] text-[#ded4c6] rounded-full text-sm font-sans tracking-wider overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.15)] transition-all hover:scale-105 hover:shadow-[0_15px_50px_rgba(0,0,0,0.25)] no-underline mt-4 mb-2">
+            <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-[0.25,1,0.5,1] rounded-full pointer-events-none" />
+            <span className="relative z-10 font-medium">{btnText}</span>
+            <ExternalLink className="w-4 h-4 relative z-10 transition-transform duration-500 group-hover:translate-x-1 group-hover:-translate-y-1" />
+          </motion.a>
+        );
+      }
+      return <a {...props} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4 decoration-black/20 hover:decoration-black">{props.children}</a>;
+    }
+  }), [setLightboxImage]);
+
   const renderAnimatedText = (text: string) => {
     return (
       <motion.div 
-        className="font-serif text-xl md:text-2xl leading-relaxed text-[#1A1A1A] min-h-[1.5em] prose prose-lg prose-headings:font-sans prose-headings:font-medium prose-headings:tracking-tight prose-a:text-blue-600 prose-img:rounded-2xl max-w-none"
-        initial={{ opacity: 0, filter: 'blur(12px)', y: 10 }}
-        whileInView={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 1.2, ease: [0.25, 1, 0.5, 1] }}
+        className="font-serif text-xl md:text-2xl leading-relaxed text-[#1A1A1A] min-h-[1.5em] prose prose-lg prose-headings:font-sans prose-headings:font-medium prose-headings:tracking-tight prose-a:text-blue-600 max-w-none"
+        variants={containerVariants}
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: false, margin: "0px 0px -5% 0px" }}
       >
         <Markdown 
           remarkPlugins={[remarkGfm]}
-          components={{
-            a: ({node, ...props}) => {
-              const text = String(props.children);
-              if (text.startsWith('button:')) {
-                const btnText = text.replace('button:', '');
-                return (
-                  <a href={props.href} target="_blank" rel="noopener noreferrer" className="group relative inline-flex items-center gap-3 px-8 py-4 bg-[#1A1A1A] text-[#ded4c6] rounded-full text-sm font-sans tracking-wider overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.15)] transition-all hover:scale-105 hover:shadow-[0_15px_50px_rgba(0,0,0,0.25)] no-underline mt-4 mb-2">
-                    <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-[0.25,1,0.5,1] rounded-full pointer-events-none" />
-                    <span className="relative z-10 font-medium">{btnText}</span>
-                    <ExternalLink className="w-4 h-4 relative z-10 transition-transform duration-500 group-hover:translate-x-1 group-hover:-translate-y-1" />
-                  </a>
-                );
-              }
-              return <a {...props} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4 decoration-black/20 hover:decoration-black">{props.children}</a>;
-            }
-          }}
+          components={markdownComponents}
         >
           {text}
         </Markdown>
       </motion.div>
     );
+  };
+
+  // Close lightbox on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && lightboxImage) {
+        setLightboxImage(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [lightboxImage]);
+
+  const handleCopyImageUrl = (url: string) => {
+    navigator.clipboard.writeText(url);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
   };
 
   return (
@@ -213,13 +290,13 @@ export default function Home() {
              <div className="min-h-screen pt-32 pb-48 px-6 md:px-12 max-w-screen-md mx-auto flex flex-col gap-12">
                 {messages.map((msg) => (
                   msg.role === 'user' ? (
-                     <motion.div
+                    <motion.div
                         id={msg.id}
                         key={msg.id}
-                        initial={{ opacity: 0, y: 50, filter: 'blur(16px)' }}
+                        initial={{ opacity: 0, y: 30, filter: 'blur(16px)' }}
                         whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                        viewport={{ once: false, margin: "-10% 0px -10% 0px" }}
-                        transition={{ duration: 1, ease: [0.25, 1, 0.5, 1] }}
+                        viewport={{ once: false, margin: "0px 0px -5% 0px" }}
+                        transition={{ duration: 0.8, ease: [0.25, 1, 0.5, 1] }}
                         className="self-end max-w-[90%]"
                      >
                         <div className="text-[#1A1A1A] font-sans text-2xl md:text-3xl tracking-tight text-right font-medium">
@@ -237,7 +314,8 @@ export default function Home() {
                         {msg.buttonName && msg.buttonLink && (
                           <motion.div
                             initial={{ opacity: 0, filter: 'blur(20px)', y: 20, scale: 0.95 }}
-                            animate={{ opacity: 1, filter: 'blur(0px)', y: 0, scale: 1 }}
+                            whileInView={{ opacity: 1, filter: 'blur(0px)', y: 0, scale: 1 }}
+                            viewport={{ once: false, margin: "0px 0px -5% 0px" }}
                             transition={{ 
                               duration: 1.2, 
                               delay: (msg.text.split(/\s+/).filter(t => t.trim() !== '').length * 0.04) + 0.5,
@@ -296,6 +374,113 @@ export default function Home() {
         )}
       </AnimatePresence>
 
+      {/* Interactive Luxury Lightbox Modal */}
+      <AnimatePresence>
+        {lightboxImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 bg-black/85 backdrop-blur-xl"
+            onClick={() => setLightboxImage(null)}
+          >
+            {/* Lightbox Controls Bar */}
+            <div 
+              className="absolute top-6 left-6 right-6 flex items-center justify-between z-50 pointer-events-none"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2 pointer-events-auto bg-black/40 backdrop-blur-md p-1.5 rounded-full border border-white/10 text-xs text-white">
+                <span className="text-white/60 px-2.5 text-[11px] font-sans tracking-wide">Backdrop:</span>
+                <button
+                  type="button"
+                  onClick={() => setLightboxBg('dark')}
+                  className={`px-3 py-1 rounded-full transition-colors ${lightboxBg === 'dark' ? 'bg-white/20 text-white font-medium' : 'text-white/60 hover:text-white'}`}
+                >
+                  Dark
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLightboxBg('linen')}
+                  className={`px-3 py-1 rounded-full transition-colors ${lightboxBg === 'linen' ? 'bg-[#ded4c6] text-black font-medium' : 'text-white/60 hover:text-white'}`}
+                >
+                  Linen
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLightboxBg('checker')}
+                  className={`px-3 py-1 rounded-full transition-colors ${lightboxBg === 'checker' ? 'bg-white/20 text-white font-medium' : 'text-white/60 hover:text-white'}`}
+                >
+                  Checkerboard
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 pointer-events-auto">
+                <button
+                  type="button"
+                  onClick={() => handleCopyImageUrl(lightboxImage.src)}
+                  className="p-2.5 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white border border-white/10 transition-colors flex items-center gap-1.5 text-xs cursor-pointer"
+                  title="Copy Image URL"
+                >
+                  {copiedLink ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                  <span className="hidden sm:inline">{copiedLink ? 'Copied!' : 'Copy URL'}</span>
+                </button>
+                <a
+                  href={lightboxImage.src}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download
+                  className="p-2.5 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white border border-white/10 transition-colors flex items-center gap-1.5 text-xs cursor-pointer"
+                  title="Open Original Image"
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline">Save</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setLightboxImage(null)}
+                  className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/10 transition-colors cursor-pointer"
+                  title="Close (ESC)"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Image Preview Box */}
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className={`relative max-w-[90vw] max-h-[80vh] rounded-3xl overflow-hidden shadow-2xl flex items-center justify-center p-4 md:p-8 transition-colors ${
+                lightboxBg === 'dark' 
+                  ? 'bg-[#151515] border border-white/10' 
+                  : lightboxBg === 'linen' 
+                  ? 'bg-[#ded4c6] border border-black/10' 
+                  : 'bg-[linear-gradient(45deg,#222_25%,transparent_25%),linear-gradient(-45deg,#222_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#222_75%),linear-gradient(-45deg,transparent_75%,#222_75%)] bg-[size:20px_20px] bg-[#1a1a1a] border border-white/10'
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={lightboxImage.src}
+                alt={lightboxImage.alt || 'Full display'}
+                className="max-h-[70vh] max-w-[85vw] object-contain select-none transition-all drop-shadow-xl"
+              />
+            </motion.div>
+
+            {lightboxImage.alt && lightboxImage.alt !== 'Image' && (
+              <div 
+                className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-md px-5 py-2 rounded-full text-white text-xs font-sans tracking-wide border border-white/10 max-w-[80vw] truncate"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {lightboxImage.alt}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AICommandBar 
         prompt={prompt}
         setPrompt={setPrompt}
@@ -304,6 +489,69 @@ export default function Home() {
         theme={isChatOpen ? 'light' : 'dark'}
       />
     </main>
+  );
+}
+
+function ImageShowcase({
+  src,
+  alt,
+  onOpenLightbox,
+}: {
+  src: string;
+  alt: string;
+  onOpenLightbox: (src: string, alt: string) => void;
+}) {
+  const [isLoaded, setIsLoaded] = useState(false);
+  const isPng = src.toLowerCase().includes('.png') || src.toLowerCase().includes('format=png') || src.toLowerCase().includes('image/png');
+
+  return (
+    <figure className="my-6 block not-prose">
+      <div
+        onClick={() => onOpenLightbox(src, alt)}
+        className="group relative inline-flex flex-col rounded-2xl overflow-hidden cursor-zoom-in transition-all duration-500 hover:scale-[1.01] hover:shadow-[0_16px_50px_rgba(0,0,0,0.12)] border border-black/5 hover:border-black/15 bg-transparent select-none max-w-full"
+      >
+        {/* Transparent container without opaque background */}
+        <div className="relative overflow-hidden rounded-2xl flex items-center justify-center p-1 bg-transparent">
+          {/* Skeleton pulse before load */}
+          {!isLoaded && (
+            <div className="w-64 h-48 bg-black/5 animate-pulse rounded-2xl flex items-center justify-center text-black/20">
+              <ImageIcon className="w-8 h-8 opacity-40 animate-spin" />
+            </div>
+          )}
+
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={src}
+            alt={alt || 'Visual display'}
+            onLoad={() => setIsLoaded(true)}
+            className={`max-h-[380px] w-auto max-w-full object-contain rounded-xl transition-all duration-700 bg-transparent ${
+              isLoaded ? 'opacity-100 filter-none' : 'opacity-0 blur-sm'
+            }`}
+            loading="lazy"
+          />
+
+          {/* Hover Overlay with Action Pill */}
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-all duration-300 rounded-2xl flex items-end justify-between p-3 opacity-0 group-hover:opacity-100 pointer-events-none">
+            <span className="bg-black/75 backdrop-blur-md text-white text-[11px] font-sans px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg">
+              <ZoomIn className="w-3.5 h-3.5 text-white/90" />
+              <span>Click to expand</span>
+            </span>
+
+            {isPng && (
+              <span className="bg-white/80 backdrop-blur-md text-[#1A1A1A] text-[10px] font-sans font-semibold tracking-wider uppercase px-2 py-1 rounded-full shadow-sm">
+                PNG • Transparent
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {alt && alt !== 'Image' && alt !== 'image' && (
+        <figcaption className="text-xs text-[#6B5E52] mt-2 font-sans tracking-wide font-normal">
+          {alt}
+        </figcaption>
+      )}
+    </figure>
   );
 }
 
@@ -359,9 +607,9 @@ function SmoothRevealText({ text }: { text: string }) {
       {text.split("").map((char, index) => (
         <motion.span
           key={index}
-          initial={{ opacity: 0, filter: 'blur(8px)' }}
-          animate={{ opacity: 1, filter: 'blur(0px)' }}
-          transition={{ duration: 0.8, delay: index * 0.04, ease: "easeOut" }}
+          initial={{ opacity: 0, filter: 'blur(10px)', x: -8 }}
+          animate={{ opacity: 1, filter: 'blur(0px)', x: 0 }}
+          transition={{ duration: 0.7, delay: index * 0.02, ease: [0.25, 1, 0.5, 1] }}
           style={{ display: 'inline-block', whiteSpace: char === ' ' ? 'pre' : 'normal' }}
         >
           {char}
@@ -375,15 +623,23 @@ function LoadingAnimation({ isExiting }: { isExiting?: boolean }) {
   const [phase, setPhase] = useState(0);
   
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase(1), 1500);
-    const t2 = setTimeout(() => setPhase(2), 3000);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    const intervals = [
+      setTimeout(() => setPhase(1), 3000),
+      setTimeout(() => setPhase(2), 6000),
+      setTimeout(() => setPhase(3), 9000),
+      setTimeout(() => setPhase(4), 12000),
+      setTimeout(() => setPhase(5), 15000),
+    ];
+    return () => intervals.forEach(clearTimeout);
   }, []);
 
   const phrases = [
-    "Analyzing requirements",
-    "Crafting the interface",
-    "Finalizing experience"
+    "Analyzing request and project scope",
+    "Architecting component hierarchy",
+    "Drafting responsive layouts",
+    "Wiring up state management",
+    "Integrating dynamic functionality",
+    "Finalizing web experience"
   ];
 
   return (
@@ -414,15 +670,15 @@ function LoadingAnimation({ isExiting }: { isExiting?: boolean }) {
         className="absolute inset-0 bg-[#ded4c6] pointer-events-none z-10"
       />
 
-      <div className="h-8 relative flex items-center justify-center overflow-hidden w-full max-w-[300px] z-20">
+      <div className="h-8 relative flex items-center justify-center overflow-hidden w-full max-w-lg z-20">
         <AnimatePresence mode="wait">
           {!isExiting && (
              <motion.div
                key={phase}
-               initial={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
-               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-               exit={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
-               transition={{ duration: 0.5 }}
+               initial={{ opacity: 0, filter: 'blur(8px)' }}
+               animate={{ opacity: 1, filter: 'blur(0px)' }}
+               exit={{ opacity: 0, filter: 'blur(8px)' }}
+               transition={{ duration: 0.6 }}
                className="font-serif text-xl font-light text-[#1A1A1A] absolute whitespace-nowrap"
              >
                <SmoothRevealText text={phrases[Math.min(phase, phrases.length - 1)] + "..."} />
