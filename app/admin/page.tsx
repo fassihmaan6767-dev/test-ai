@@ -108,17 +108,42 @@ export default function AdminDashboard() {
         body: JSON.stringify({ email: 'talkwithfasih@gmail.com', otp: code })
       });
       
+      const data = await res.json();
       if (!res.ok) {
-        throw new Error('Email API failed');
+        throw new Error(data.error || 'Email delivery failed');
       }
-      showToast('OTP sent to your email successfully.');
+      showToast('OTP sent to your email (talkwithfasih@gmail.com). Please check your inbox.');
     } catch (e: any) {
       console.error('Error sending OTP:', e);
-      setOtpError('Failed to send OTP. Please check your mail server configuration.');
+      setOtpError(e.message || 'Failed to send OTP to your email. Please try clicking Resend.');
     } finally {
       setOtpSending(false);
     }
   }, []);
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otpInput.trim() || otpInput.trim().length < 6) return;
+    
+    setAuthSubmitting(true);
+    setOtpError('');
+    try {
+      const isValid = await verifyOtpFromDatabase(otpInput.trim());
+      if (isValid) {
+        sessionStorage.setItem('admin_otp_verified', 'true');
+        setOtpVerified(true);
+        setShowOtpScreen(false);
+        showToast('Admin verification successful. Welcome!');
+      } else {
+        setOtpError('Invalid or expired OTP code. Please check your email inbox.');
+      }
+    } catch (err: any) {
+      console.error('OTP Verification Error:', err);
+      setOtpError('Verification failed. Please try again.');
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -461,27 +486,6 @@ export default function AdminDashboard() {
       </div>
     );
   }
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthSubmitting(true);
-    setOtpError('');
-    try {
-      const isValid = await verifyOtpFromDatabase(otpInput);
-      if (isValid) {
-        sessionStorage.setItem('admin_otp_verified', 'true');
-        setOtpVerified(true);
-        setShowOtpScreen(false);
-        showToast('OTP Verified! Welcome back.');
-      } else {
-        setOtpError('Invalid or expired OTP code.');
-      }
-    } catch (err: any) {
-      setOtpError('Error verifying OTP.');
-    } finally {
-      setAuthSubmitting(false);
-    }
-  };
 
   const renderAuthForms = () => {
     if (authMode === 'forgot') {
