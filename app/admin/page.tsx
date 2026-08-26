@@ -60,6 +60,7 @@ import {
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
+import rehypeRaw from 'rehype-raw';
 
 export default function AdminDashboard() {
   const [user, setUser] = useState<User | null>(null);
@@ -328,7 +329,7 @@ export default function AdminDashboard() {
     showToast('Signed out');
   };
 
-  const applyFormatting = (tag: 'bold' | 'italic' | 'bullet' | 'code' | 'h1' | 'h2' | 'h3' | 'img-left' | 'img-center' | 'img-right' | 'space' | 'clear' | 'button') => {
+  const applyFormatting = (tag: 'bold' | 'italic' | 'bullet' | 'code' | 'h1' | 'h2' | 'h3' | 'img-left' | 'img-center' | 'img-right' | 'space' | 'clear' | 'button' | 'textColor' | 'customCode') => {
     const textarea = answerTextareaRef.current;
     if (!textarea) return;
 
@@ -392,12 +393,35 @@ export default function AdminDashboard() {
       case 'clear':
         replacement = `\n\n---\n\n`;
         break;
+      case 'textColor': {
+        const color = window.prompt('Enter text color (e.g., #ff0000, red, rgb(0,0,0)):', '#ff0000');
+        if (!color) return;
+        replacement = `<span style="color: ${color};">${selectedText || 'colored text'}</span>`;
+        break;
+      }
+      case 'customCode': {
+        const code = window.prompt('Paste your HTML/Tailwind Code here (it will render visually):', '<div class="p-4 bg-gray-100 rounded-lg text-center font-bold">Custom Component</div>');
+        if (!code) return;
+        replacement = `\n\n<div class="custom-component my-4 clear-both">\n${code}\n</div>\n\n`;
+        break;
+      }
       case 'button': {
         const btnUrl = window.prompt('Enter Button URL:');
         if (!btnUrl) return;
         const btnText = window.prompt('Enter Button Text:', selectedText || 'Click Here');
         if (!btnText) return;
-        replacement = `\n[button:${btnText}](${btnUrl})\n`;
+        const bgColor = window.prompt('Enter Button Background Color (e.g. #000, blue):', '#1A1A1A');
+        const textColor = window.prompt('Enter Button Text Color (e.g. #fff, white):', '#ded4c6');
+        const align = window.prompt('Align (left, center, right):', 'center');
+        const btnWidth = window.prompt('Button Width (e.g. 200px, 100%, auto):', 'auto');
+        
+        let alignStyle = 'text-align: center;';
+        if (align === 'left') alignStyle = 'text-align: left;';
+        if (align === 'right') alignStyle = 'text-align: right;';
+        
+        replacement = `\n<div style="${alignStyle} margin: 1.5rem 0; clear: both;">
+  <a href="${btnUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: ${bgColor}; color: ${textColor}; padding: 0.75rem 2rem; border-radius: 9999px; text-decoration: none; font-weight: 500; box-shadow: 0 10px 40px rgba(0,0,0,0.15); width: ${btnWidth}; transition: transform 0.3s ease;">${btnText}</a>
+</div>\n`;
         break;
       }
     }
@@ -482,6 +506,7 @@ export default function AdminDashboard() {
       <div className="font-serif text-sm leading-relaxed text-[#2C2621] prose prose-sm max-w-none prose-headings:font-sans prose-headings:font-semibold prose-a:text-blue-600 overflow-hidden clearfix">
         <Markdown 
           remarkPlugins={[remarkGfm, remarkBreaks]}
+          rehypePlugins={[rehypeRaw]}
           components={{
             h1: ({node, ...props}) => <h1 className="text-xl font-sans font-bold text-[#1A1A1A] mt-4 mb-2 not-italic clear-both" {...props} />,
             h2: ({node, ...props}) => <h2 className="text-lg font-sans font-bold text-[#1A1A1A] mt-3 mb-1.5 not-italic clear-both" {...props} />,
@@ -1253,12 +1278,30 @@ service cloud.firestore {
                         </button>
                         <button
                           type="button"
+                          onClick={() => applyFormatting('textColor')}
+                          className="flex items-center gap-1 px-2 py-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer text-[11px] font-medium"
+                          title="Colorize Text"
+                        >
+                          <span className="w-3.5 h-3.5 flex items-center justify-center font-bold text-[#8A7B6E]" style={{ color: 'red' }}>A</span>
+                          <span>Text Color</span>
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => applyFormatting('button')}
                           className="flex items-center gap-1 px-2 py-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer text-[11px] font-medium"
                           title="Insert CTA Button"
                         >
                           <MousePointerClick className="w-3.5 h-3.5 text-[#8A7B6E]" />
                           <span>Button</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyFormatting('customCode')}
+                          className="flex items-center gap-1 px-2 py-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer text-[11px] font-medium"
+                          title="Insert Custom Code Component (HTML/Tailwind)"
+                        >
+                          <Code className="w-3.5 h-3.5 text-[#8A7B6E]" />
+                          <span>Custom Code Component</span>
                         </button>
                       </div>
                     </div>

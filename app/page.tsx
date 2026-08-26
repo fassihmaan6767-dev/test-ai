@@ -22,6 +22,7 @@ import { subscribeToQueries, saveChatLog, QueryItem } from '@/lib/firebase';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
+import rehypeRaw from 'rehype-raw';
 
 interface ChatMessage {
   id: string;
@@ -273,6 +274,7 @@ export default function Home() {
       >
         <Markdown 
           remarkPlugins={[remarkGfm, remarkBreaks]}
+          rehypePlugins={[rehypeRaw]}
           components={markdownComponents}
         >
           {text}
