@@ -25,7 +25,12 @@ import {
   Zap,
   Key,
   Image as ImageIcon,
-  MousePointerClick
+  MousePointerClick,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  MoveVertical,
+  Minus
 } from 'lucide-react';
 import Link from 'next/link';
 import { 
@@ -54,6 +59,8 @@ import {
 
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
+import CanvasEditor from '@/components/CanvasEditor';
 
 export default function AdminDashboard() {
   const [user, setUser] = useState<User | null>(null);
@@ -235,12 +242,19 @@ export default function AdminDashboard() {
     setAuthError('');
     setAuthSubmitting(true);
     try {
+      // Always clear previous session verification so OTP is requested every time
+      sessionStorage.removeItem('admin_otp_verified');
+      setOtpVerified(false);
+
       const result = await signInWithPopup(auth, googleProvider);
-      if (result.user.email !== 'talkwithfasih@gmail.com') {
+      if (result.user.email?.toLowerCase() !== 'talkwithfasih@gmail.com') {
         await signOut(auth);
         setAuthError('Access Denied: You do not have admin privileges.');
       } else {
-        showToast('Logged in with Google successfully');
+        setUser(result.user);
+        setShowOtpScreen(true);
+        handleSendOtp();
+        showToast('Google account recognized. Please enter the OTP sent to your email.');
       }
     } catch (err: any) {
       console.error(err);
@@ -267,8 +281,13 @@ export default function AdminDashboard() {
         showToast('Password reset link sent to your email');
         setAuthMode('login');
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
-        showToast('Welcome back to Admin Portal');
+        sessionStorage.removeItem('admin_otp_verified');
+        setOtpVerified(false);
+        const userCred = await signInWithEmailAndPassword(auth, email, password);
+        setUser(userCred.user);
+        setShowOtpScreen(true);
+        handleSendOtp();
+        showToast('Credentials accepted. Please enter the OTP sent to your email.');
       }
     } catch (err: any) {
       console.error(err);
@@ -303,11 +322,14 @@ export default function AdminDashboard() {
   };
 
   const handleSignOut = async () => {
+    sessionStorage.removeItem('admin_otp_verified');
+    setOtpVerified(false);
+    setShowOtpScreen(false);
     await signOut(auth);
     showToast('Signed out');
   };
 
-  const applyFormatting = (tag: 'bold' | 'italic' | 'bullet' | 'code' | 'h1' | 'h2' | 'h3' | 'image' | 'button') => {
+  const applyFormatting = (tag: 'bold' | 'italic' | 'bullet' | 'code' | 'h1' | 'h2' | 'h3' | 'img-left' | 'img-center' | 'img-right' | 'space' | 'clear' | 'button') => {
     const textarea = answerTextareaRef.current;
     if (!textarea) return;
 
@@ -338,13 +360,33 @@ export default function AdminDashboard() {
       case 'h3':
         replacement = `\n### ${selectedText || 'Heading 3'}\n`;
         break;
-      case 'image': {
-        const url = window.prompt('Enter Image URL (PNG, WebP, JPG or transparent cutout):');
+      case 'img-left': {
+        const url = window.prompt('Enter Image URL (Float Left - text will wrap around the right):');
         if (!url) return;
-        const caption = window.prompt('Enter Image Caption / Alt Text (optional):', selectedText || '');
-        replacement = `\n![${caption || 'Visual display'}](${url.trim()})\n`;
+        const caption = window.prompt('Enter Image Caption / Description (optional):', selectedText || '');
+        replacement = `\n![float-left:${caption || 'Image'}](${url.trim()})\n`;
         break;
       }
+      case 'img-center': {
+        const url = window.prompt('Enter Image URL (Centered Block):');
+        if (!url) return;
+        const caption = window.prompt('Enter Image Caption / Description (optional):', selectedText || '');
+        replacement = `\n![center:${caption || 'Image'}](${url.trim()})\n`;
+        break;
+      }
+      case 'img-right': {
+        const url = window.prompt('Enter Image URL (Float Right - text will wrap around the left):');
+        if (!url) return;
+        const caption = window.prompt('Enter Image Caption / Description (optional):', selectedText || '');
+        replacement = `\n![float-right:${caption || 'Image'}](${url.trim()})\n`;
+        break;
+      }
+      case 'space':
+        replacement = `\n\n&nbsp;\n\n`;
+        break;
+      case 'clear':
+        replacement = `\n\n---\n\n`;
+        break;
       case 'button': {
         const btnUrl = window.prompt('Enter Button URL:');
         if (!btnUrl) return;
@@ -431,34 +473,77 @@ export default function AdminDashboard() {
   });
 
   const renderFormattedPreview = (text: string) => {
+    let isCanvas = false;
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) {
+        isCanvas = true;
+      }
+    } catch (e) {
+      // not json
+    }
+
+    if (isCanvas) {
+      return (
+        <div className="h-[250px] w-full relative border border-[#e4d8c7] rounded-xl overflow-hidden">
+          <CanvasEditor value={text} onChange={() => {}} readOnly />
+        </div>
+      );
+    }
+
     return (
-      <div className="font-serif text-sm leading-relaxed text-[#2C2621] prose prose-sm max-w-none prose-headings:font-sans prose-headings:font-normal prose-a:text-blue-600">
+      <div className="font-serif text-sm leading-relaxed text-[#2C2621] prose prose-sm max-w-none prose-headings:font-sans prose-headings:font-semibold prose-a:text-blue-600 overflow-hidden clearfix">
         <Markdown 
-          remarkPlugins={[remarkGfm]}
+          remarkPlugins={[remarkGfm, remarkBreaks]}
           components={{
+            h1: ({node, ...props}) => <h1 className="text-xl font-sans font-bold text-[#1A1A1A] mt-4 mb-2 not-italic clear-both" {...props} />,
+            h2: ({node, ...props}) => <h2 className="text-lg font-sans font-bold text-[#1A1A1A] mt-3 mb-1.5 not-italic clear-both" {...props} />,
+            h3: ({node, ...props}) => <h3 className="text-base font-sans font-semibold text-[#1A1A1A] mt-2.5 mb-1 not-italic" {...props} />,
+            p: ({node, ...props}) => <p className="mb-3 leading-relaxed whitespace-pre-line" {...props} />,
             img: ({ node, ...props }) => {
               const srcStr = String(props.src || '');
               const altStr = String(props.alt || '');
+              const isFloatLeft = altStr.toLowerCase().includes('float-left') || altStr.toLowerCase().includes('left');
+              const isFloatRight = altStr.toLowerCase().includes('float-right') || altStr.toLowerCase().includes('right');
               const isPng = srcStr.toLowerCase().includes('.png') || srcStr.toLowerCase().includes('image/png');
+              const cleanAlt = altStr.replace(/^(float-left|float-right|center|left|right):?/i, '').trim();
+
+              let floatClasses = "my-3 block clear-both mx-auto";
+              if (isFloatLeft) {
+                floatClasses = "float-left mr-4 mb-3 max-w-[200px] clear-left";
+              } else if (isFloatRight) {
+                floatClasses = "float-right ml-4 mb-3 max-w-[200px] clear-right";
+              }
+
               return (
-                <figure className="my-3 block not-prose">
+                <figure className={`not-prose ${floatClasses}`}>
                   <div className="relative inline-block rounded-xl overflow-hidden border border-[#d6c7b4] bg-transparent p-1 shadow-sm">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={srcStr}
-                      alt={altStr || 'Preview'}
-                      className="max-h-[240px] w-auto max-w-full object-contain rounded-lg bg-transparent"
+                      alt={cleanAlt || 'Preview'}
+                      className="max-h-[190px] w-auto max-w-full object-contain rounded-lg bg-transparent"
                       loading="lazy"
                     />
+                    {isFloatLeft && (
+                      <span className="absolute top-1.5 left-1.5 bg-black/75 text-white text-[8px] font-sans px-1.5 py-0.5 rounded font-medium">
+                        Float Left ⬅️
+                      </span>
+                    )}
+                    {isFloatRight && (
+                      <span className="absolute top-1.5 right-1.5 bg-black/75 text-white text-[8px] font-sans px-1.5 py-0.5 rounded font-medium">
+                        Float Right ➡️
+                      </span>
+                    )}
                     {isPng && (
-                      <span className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm text-white text-[9px] font-sans px-2 py-0.5 rounded-full font-medium">
-                        PNG • Transparent
+                      <span className="absolute bottom-1.5 right-1.5 bg-black/70 backdrop-blur-sm text-white text-[8px] font-sans px-1.5 py-0.5 rounded font-medium">
+                        PNG
                       </span>
                     )}
                   </div>
-                  {altStr && altStr !== 'Image' && altStr !== 'image' && altStr !== 'Visual display' && (
-                    <figcaption className="text-[11px] text-[#8A7B6E] mt-1 font-sans">
-                      {altStr}
+                  {cleanAlt && cleanAlt !== 'Image' && cleanAlt !== 'image' && cleanAlt !== 'Visual display' && (
+                    <figcaption className="text-[10px] text-[#8A7B6E] mt-1 font-sans">
+                      {cleanAlt}
                     </figcaption>
                   )}
                 </figure>
@@ -469,13 +554,16 @@ export default function AdminDashboard() {
               if (text.startsWith('button:')) {
                 const btnText = text.replace('button:', '');
                 return (
-                  <a href={props.href} target="_blank" rel="noopener noreferrer" className="group relative inline-flex items-center gap-2 px-4 py-2 bg-[#1A1A1A] text-[#ded4c6] rounded-full text-xs font-sans tracking-wider overflow-hidden no-underline mt-2 mb-1">
-                    <span className="relative z-10 font-medium">{btnText}</span>
-                  </a>
+                  <div className="my-2.5 clear-both">
+                    <a href={props.href} target="_blank" rel="noopener noreferrer" className="group relative inline-flex items-center gap-2 px-4 py-2 bg-[#1A1A1A] text-[#ded4c6] rounded-full text-xs font-sans tracking-wider overflow-hidden no-underline">
+                      <span className="relative z-10 font-medium">{btnText}</span>
+                    </a>
+                  </div>
                 );
               }
-              return <a {...props} target="_blank" rel="noopener noreferrer" className="underline">{props.children}</a>;
-            }
+              return <a {...props} target="_blank" rel="noopener noreferrer" className="underline text-blue-700">{props.children}</a>;
+            },
+            hr: () => <div className="clear-both my-4 border-b border-black/10" />
           }}
         >
           {text}
@@ -1048,103 +1136,13 @@ service cloud.firestore {
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="block text-xs font-semibold text-[#4A3E33]">
-                      Answer (AI Output)
+                      Answer (AI Output - Canvas Editor)
                     </label>
-                    
-                    <div className="flex items-center gap-1 bg-[#ede3d5] p-1 rounded-lg">
-                      <button
-                        type="button"
-                        onClick={() => applyFormatting('bold')}
-                        className="p-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer"
-                        title="Bold (**text**)"
-                      >
-                        <Bold className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyFormatting('italic')}
-                        className="p-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer"
-                        title="Italic (*text*)"
-                      >
-                        <Italic className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyFormatting('bullet')}
-                        className="p-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer"
-                        title="Bullet List"
-                      >
-                        <List className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyFormatting('code')}
-                        className="p-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer"
-                        title="Code snippet"
-                      >
-                        <Code className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyFormatting('h1')}
-                        className="p-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer font-bold"
-                        title="Heading 1"
-                      >
-                        <Heading1 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyFormatting('h2')}
-                        className="p-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer font-bold"
-                        title="Heading 2"
-                      >
-                        <Heading2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyFormatting('h3')}
-                        className="p-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer font-bold"
-                        title="Heading 3"
-                      >
-                        <Heading3 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyFormatting('image')}
-                        className="p-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer"
-                        title="Add Image"
-                      >
-                        <ImageIcon className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyFormatting('button')}
-                        className="p-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer"
-                        title="Add Button"
-                      >
-                        <MousePointerClick className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
                   </div>
-
-                  <textarea
-                    ref={answerTextareaRef}
-                    required
-                    rows={4}
-                    placeholder="Write the exact response for this inquiry. You can use markdown like **bold**, *italic*, or bullet points."
-                    value={formAnswer}
-                    onChange={(e) => setFormAnswer(e.target.value)}
-                    className="w-full p-3.5 bg-white border border-[#d6c7b4] rounded-xl text-sm outline-none focus:border-[#4A3E33] font-serif leading-relaxed"
-                  />
-
-                  {formAnswer && (
-                    <div className="mt-2 p-3 bg-[#f2ece2] rounded-xl border border-[#e4d8c7]">
-                      <span className="text-[10px] uppercase tracking-wider font-semibold text-[#8A7B6E] block mb-1">
-                        Live Visual Preview:
-                      </span>
-                      {renderFormattedPreview(formAnswer)}
-                    </div>
-                  )}
+                  
+                  <div className="h-[450px] w-full relative">
+                    <CanvasEditor value={formAnswer} onChange={setFormAnswer} />
+                  </div>
                 </div>
 
                 <div className="p-4 bg-[#f2ece2] rounded-xl border border-[#ded1c0] space-y-3">

@@ -21,6 +21,8 @@ import Lenis from 'lenis';
 import { subscribeToQueries, saveChatLog, QueryItem } from '@/lib/firebase';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
+import CanvasEditor from '@/components/CanvasEditor';
 
 interface ChatMessage {
   id: string;
@@ -197,26 +199,37 @@ export default function Home() {
 
   const markdownComponents = useMemo(() => ({
     p: ({node, ...props}: any) => (
-      <motion.p variants={itemVariants} {...props} />
+      <motion.p variants={itemVariants} className="mb-4 leading-relaxed whitespace-pre-line" {...props} />
     ),
     h1: ({node, ...props}: any) => (
-      <motion.h1 variants={itemVariants} {...props} />
+      <motion.h1 variants={itemVariants} className="text-3xl md:text-4xl font-sans font-bold text-[#1A1A1A] mt-6 mb-3 tracking-tight clear-both" {...props} />
     ),
     h2: ({node, ...props}: any) => (
-      <motion.h2 variants={itemVariants} {...props} />
+      <motion.h2 variants={itemVariants} className="text-2xl md:text-3xl font-sans font-semibold text-[#1A1A1A] mt-5 mb-2.5 tracking-tight clear-both" {...props} />
     ),
     h3: ({node, ...props}: any) => (
-      <motion.h3 variants={itemVariants} {...props} />
+      <motion.h3 variants={itemVariants} className="text-xl md:text-2xl font-sans font-medium text-[#1A1A1A] mt-4 mb-2 tracking-tight" {...props} />
     ),
     li: ({node, ...props}: any) => (
-      <motion.li variants={itemVariants} {...props} />
+      <motion.li variants={itemVariants} className="my-1.5 leading-relaxed" {...props} />
     ),
     img: ({ node, ...props }: any) => {
+      const srcStr = String(props.src || '');
+      const altStr = String(props.alt || '');
+      const isFloatLeft = altStr.toLowerCase().includes('float-left') || altStr.toLowerCase().includes('left');
+      const isFloatRight = altStr.toLowerCase().includes('float-right') || altStr.toLowerCase().includes('right');
+      const cleanAlt = altStr.replace(/^(float-left|float-right|center|left|right):?/i, '').trim();
+
+      let align: 'left' | 'right' | 'center' = 'center';
+      if (isFloatLeft) align = 'left';
+      else if (isFloatRight) align = 'right';
+
       return (
-        <motion.div variants={itemVariants}>
+        <motion.div variants={itemVariants} className="inline-block">
           <ImageShowcase 
-            src={String(props.src || '')} 
-            alt={String(props.alt || '')} 
+            src={srcStr} 
+            alt={cleanAlt} 
+            align={align}
             onOpenLightbox={(src, alt) => setLightboxImage({ src, alt })} 
           />
         </motion.div>
@@ -227,30 +240,57 @@ export default function Home() {
       if (text.startsWith('button:')) {
         const btnText = text.replace('button:', '');
         return (
-          <motion.a 
-            variants={itemVariants}
-            href={props.href} target="_blank" rel="noopener noreferrer" className="group relative inline-flex items-center gap-3 px-8 py-4 bg-[#1A1A1A] text-[#ded4c6] rounded-full text-sm font-sans tracking-wider overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.15)] transition-all hover:scale-105 hover:shadow-[0_15px_50px_rgba(0,0,0,0.25)] no-underline mt-4 mb-2">
-            <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-[0.25,1,0.5,1] rounded-full pointer-events-none" />
-            <span className="relative z-10 font-medium">{btnText}</span>
-            <ExternalLink className="w-4 h-4 relative z-10 transition-transform duration-500 group-hover:translate-x-1 group-hover:-translate-y-1" />
-          </motion.a>
+          <div className="my-4 clear-both">
+            <motion.a 
+              variants={itemVariants}
+              href={props.href} target="_blank" rel="noopener noreferrer" className="group relative inline-flex items-center gap-3 px-8 py-4 bg-[#1A1A1A] text-[#ded4c6] rounded-full text-sm font-sans tracking-wider overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.15)] transition-all hover:scale-105 hover:shadow-[0_15px_50px_rgba(0,0,0,0.25)] no-underline">
+              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-[0.25,1,0.5,1] rounded-full pointer-events-none" />
+              <span className="relative z-10 font-medium">{btnText}</span>
+              <ExternalLink className="w-4 h-4 relative z-10 transition-transform duration-500 group-hover:translate-x-1 group-hover:-translate-y-1" />
+            </motion.a>
+          </div>
         );
       }
-      return <a {...props} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4 decoration-black/20 hover:decoration-black">{props.children}</a>;
-    }
+      return <a {...props} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4 decoration-black/20 hover:decoration-black text-blue-700">{props.children}</a>;
+    },
+    hr: () => <div className="clear-both my-6 border-b border-black/10" />
   }), [setLightboxImage]);
 
   const renderAnimatedText = (text: string) => {
+    let isCanvas = false;
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) {
+        isCanvas = true;
+      }
+    } catch (e) {
+      // not json
+    }
+
+    if (isCanvas) {
+      return (
+        <motion.div 
+          className="w-full relative rounded-2xl overflow-hidden min-h-[400px] shadow-sm border border-[#e4d8c7]"
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: false, margin: "0px 0px -5% 0px" }}
+        >
+          <CanvasEditor value={text} onChange={() => {}} readOnly />
+        </motion.div>
+      );
+    }
+
     return (
       <motion.div 
-        className="font-serif text-xl md:text-2xl leading-relaxed text-[#1A1A1A] min-h-[1.5em] prose prose-lg prose-headings:font-sans prose-headings:font-medium prose-headings:tracking-tight prose-a:text-blue-600 max-w-none"
+        className="font-serif text-xl md:text-2xl leading-relaxed text-[#1A1A1A] min-h-[1.5em] prose prose-lg prose-headings:font-sans prose-headings:font-medium prose-headings:tracking-tight prose-a:text-blue-600 max-w-none clearfix"
         variants={containerVariants}
         initial="hidden"
         whileInView="show"
         viewport={{ once: false, margin: "0px 0px -5% 0px" }}
       >
         <Markdown 
-          remarkPlugins={[remarkGfm]}
+          remarkPlugins={[remarkGfm, remarkBreaks]}
           components={markdownComponents}
         >
           {text}
@@ -511,17 +551,30 @@ export default function Home() {
 function ImageShowcase({
   src,
   alt,
+  align = 'center',
   onOpenLightbox,
 }: {
   src: string;
   alt: string;
+  align?: 'left' | 'right' | 'center';
   onOpenLightbox: (src: string, alt: string) => void;
 }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const isPng = src.toLowerCase().includes('.png') || src.toLowerCase().includes('format=png') || src.toLowerCase().includes('image/png');
 
+  let containerClass = "my-6 block clear-both mx-auto";
+  let maxImgHeight = "max-h-[380px]";
+
+  if (align === 'left') {
+    containerClass = "float-left mr-6 mb-4 max-w-[280px] sm:max-w-[360px] clear-left not-prose";
+    maxImgHeight = "max-h-[260px] sm:max-h-[300px]";
+  } else if (align === 'right') {
+    containerClass = "float-right ml-6 mb-4 max-w-[280px] sm:max-w-[360px] clear-right not-prose";
+    maxImgHeight = "max-h-[260px] sm:max-w-[300px]";
+  }
+
   return (
-    <figure className="my-6 block not-prose">
+    <figure className={containerClass}>
       <div
         onClick={() => onOpenLightbox(src, alt)}
         className="group relative inline-flex flex-col rounded-2xl overflow-hidden cursor-zoom-in transition-all duration-500 hover:scale-[1.01] hover:shadow-[0_16px_50px_rgba(0,0,0,0.12)] border border-black/5 hover:border-black/15 bg-transparent select-none max-w-full"
@@ -530,7 +583,7 @@ function ImageShowcase({
         <div className="relative overflow-hidden rounded-2xl flex items-center justify-center p-1 bg-transparent">
           {/* Skeleton pulse before load */}
           {!isLoaded && (
-            <div className="w-64 h-48 bg-black/5 animate-pulse rounded-2xl flex items-center justify-center text-black/20">
+            <div className="w-56 h-40 bg-black/5 animate-pulse rounded-2xl flex items-center justify-center text-black/20">
               <ImageIcon className="w-8 h-8 opacity-40 animate-spin" />
             </div>
           )}
@@ -540,7 +593,7 @@ function ImageShowcase({
             src={src}
             alt={alt || 'Visual display'}
             onLoad={() => setIsLoaded(true)}
-            className={`max-h-[380px] w-auto max-w-full object-contain rounded-xl transition-all duration-700 bg-transparent ${
+            className={`${maxImgHeight} w-auto max-w-full object-contain rounded-xl transition-all duration-700 bg-transparent ${
               isLoaded ? 'opacity-100 filter-none' : 'opacity-0 blur-sm'
             }`}
             loading="lazy"
@@ -562,8 +615,8 @@ function ImageShowcase({
         </div>
       </div>
 
-      {alt && alt !== 'Image' && alt !== 'image' && (
-        <figcaption className="text-xs text-[#6B5E52] mt-2 font-sans tracking-wide font-normal">
+      {alt && alt !== 'Image' && alt !== 'image' && alt !== 'Visual display' && (
+        <figcaption className="text-xs text-[#6B5E52] mt-1.5 font-sans tracking-wide font-normal">
           {alt}
         </figcaption>
       )}
