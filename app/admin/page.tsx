@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -94,7 +94,7 @@ export default function AdminDashboard() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const handleSendOtp = async () => {
+  const handleSendOtp = useCallback(async () => {
     setOtpSending(true);
     setOtpError('');
     try {
@@ -118,7 +118,7 @@ export default function AdminDashboard() {
     } finally {
       setOtpSending(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -141,7 +141,7 @@ export default function AdminDashboard() {
       setAuthLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [handleSendOtp]);
 
   useEffect(() => {
     const unsubQueries = subscribeToQueries((items) => {
