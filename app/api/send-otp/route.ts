@@ -25,11 +25,14 @@ export async function POST(req: Request) {
 
     // STRATEGY 1: Direct FormSubmit.co API (Sends real email to inbox without requiring password)
     try {
+      const origin = req.headers.get('origin') || 'https://ais-dev-4fvvvjeq5orwggkfrnjjwf-55827531331.asia-southeast1.run.app';
       const response = await fetch(`https://formsubmit.co/ajax/${ADMIN_EMAIL}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'Origin': origin,
+          'Referer': `${origin}/`
         },
         body: JSON.stringify({
           _subject: `Maison AI Admin Verification Code: ${otp}`,
@@ -43,6 +46,10 @@ export async function POST(req: Request) {
       });
 
       if (response.ok) {
+        const data = await response.json();
+        if (data.success === 'false' && data.message?.includes('Activation')) {
+          return NextResponse.json({ error: 'ACTION REQUIRED: FormSubmit sent an "Activate Form" link to your email. Please check your inbox, click the Activate link, and then try again.' }, { status: 400 });
+        }
         emailSent = true;
       } else {
         const text = await response.text();

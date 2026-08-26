@@ -16,6 +16,8 @@ import {
   List, 
   Code, 
   Heading1, 
+  Heading2,
+  Heading3,
   Link as LinkIcon, 
   ArrowLeft,
   RefreshCw,
@@ -305,7 +307,7 @@ export default function AdminDashboard() {
     showToast('Signed out');
   };
 
-  const applyFormatting = (tag: 'bold' | 'italic' | 'bullet' | 'code' | 'heading' | 'image' | 'button') => {
+  const applyFormatting = (tag: 'bold' | 'italic' | 'bullet' | 'code' | 'h1' | 'h2' | 'h3' | 'image' | 'button') => {
     const textarea = answerTextareaRef.current;
     if (!textarea) return;
 
@@ -327,8 +329,14 @@ export default function AdminDashboard() {
       case 'code':
         replacement = `\`${selectedText || 'code'}\``;
         break;
-      case 'heading':
-        replacement = `\n### ${selectedText || 'Heading'}\n`;
+      case 'h1':
+        replacement = `\n# ${selectedText || 'Heading 1'}\n`;
+        break;
+      case 'h2':
+        replacement = `\n## ${selectedText || 'Heading 2'}\n`;
+        break;
+      case 'h3':
+        replacement = `\n### ${selectedText || 'Heading 3'}\n`;
         break;
       case 'image': {
         const url = window.prompt('Enter Image URL (PNG, WebP, JPG or transparent cutout):');
@@ -1078,11 +1086,27 @@ service cloud.firestore {
                       </button>
                       <button
                         type="button"
-                        onClick={() => applyFormatting('heading')}
-                        className="p-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer"
-                        title="Heading"
+                        onClick={() => applyFormatting('h1')}
+                        className="p-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer font-bold"
+                        title="Heading 1"
                       >
                         <Heading1 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyFormatting('h2')}
+                        className="p-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer font-bold"
+                        title="Heading 2"
+                      >
+                        <Heading2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyFormatting('h3')}
+                        className="p-1 hover:bg-white rounded text-[#4A3E33] cursor-pointer font-bold"
+                        title="Heading 3"
+                      >
+                        <Heading3 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         type="button"
