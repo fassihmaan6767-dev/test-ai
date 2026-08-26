@@ -60,6 +60,7 @@ export interface ChatLogItem {
   buttonLink?: string;
   source?: 'database' | 'groq' | 'gemini' | 'fallback';
   timestamp?: any;
+  rollNo?: string;
 }
 
 // Subscribe to real-time queries
@@ -113,6 +114,12 @@ export async function updateQueryDoc(id: string, data: Partial<QueryItem>) {
 // Delete query
 export async function deleteQueryDoc(id: string) {
   const docRef = doc(db, 'queries', id);
+  return await deleteDoc(docRef);
+}
+
+// Delete chat log
+export async function deleteChatLogDoc(id: string) {
+  const docRef = doc(db, 'chat_logs', id);
   return await deleteDoc(docRef);
 }
 

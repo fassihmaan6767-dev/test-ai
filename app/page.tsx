@@ -45,6 +45,20 @@ const itemVariants: any = {
   show: { opacity: 1, filter: 'blur(0px)', y: 0, transition: { duration: 1, ease: [0.25, 1, 0.5, 1] } }
 };
 
+function getOrCreateRollNo(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    let existing = localStorage.getItem('chatRollNo');
+    if (!existing) {
+      existing = 'GUEST-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+      localStorage.setItem('chatRollNo', existing);
+    }
+    return existing;
+  } catch {
+    return 'GUEST-ANON';
+  }
+}
+
 export default function Home() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -137,7 +151,8 @@ export default function Home() {
         aiResponse: replyText,
         buttonName: replyButtonName || undefined,
         buttonLink: replyButtonLink || undefined,
-        source: data.source || 'ai'
+        source: data.source || 'ai',
+        rollNo: getOrCreateRollNo()
       });
 
     } catch (error) {
@@ -149,7 +164,8 @@ export default function Home() {
       saveChatLog({
         userMessage: userText,
         aiResponse: replyText,
-        source: 'fallback'
+        source: 'fallback',
+        rollNo: getOrCreateRollNo()
       });
     }
 

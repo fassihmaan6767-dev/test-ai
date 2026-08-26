@@ -1,26 +1,36 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
+const ADMIN_EMAIL = 'talkwithfasih@gmail.com';
+
 export async function POST(req: Request) {
   try {
     const { email, otp } = await req.json();
 
+    // CYBERSECURITY ENFORCEMENT: Only allow the authorized admin email
+    if (email.toLowerCase() !== ADMIN_EMAIL) {
+      console.warn(`SECURITY ALERT: Unauthorized login attempt with email: ${email}`);
+      return NextResponse.json(
+        { error: 'Unauthorized Access. This incident has been logged.' }, 
+        { status: 403 }
+      );
+    }
+
     if (!process.env.GMAIL_APP_PASSWORD) {
-       console.log('No GMAIL_APP_PASSWORD found. Emulated success. OTP:', otp);
-       return NextResponse.json({ error: 'GMAIL_APP_PASSWORD is not set in Vercel Environment Variables. Please add it to send emails.' }, { status: 400 });
+       return NextResponse.json({ error: 'Mail server configuration is missing.' }, { status: 500 });
     }
 
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: 'talkwithfasih@gmail.com',
+        user: ADMIN_EMAIL,
         pass: process.env.GMAIL_APP_PASSWORD,
       },
     });
 
     await transporter.sendMail({
-      from: '"Maison AI Admin" <talkwithfasih@gmail.com>',
-      to: email,
+      from: `"Maison AI Admin" <${ADMIN_EMAIL}>`,
+      to: ADMIN_EMAIL,
       subject: 'Admin Dashboard - 6-Digit Verification Code',
       text: `Your admin verification code is: ${otp}`,
       html: `
@@ -36,6 +46,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Nodemailer Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to send OTP.' }, { status: 500 });
   }
 }
+

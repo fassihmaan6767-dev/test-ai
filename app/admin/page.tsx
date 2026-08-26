@@ -36,6 +36,7 @@ import {
   subscribeToChatLogs,
   saveOtpToDatabase,
   verifyOtpFromDatabase,
+  deleteChatLogDoc,
   QueryItem, 
   ChatLogItem 
 } from '@/lib/firebase';
@@ -108,13 +109,12 @@ export default function AdminDashboard() {
       });
       
       if (!res.ok) {
-        console.warn('Email API failed. OTP is:', code);
-        alert(`Developer Mode: Email API failed (Missing GMAIL_APP_PASSWORD). Your OTP is: ${code}`);
+        throw new Error('Email API failed');
       }
-      showToast('OTP sent to talkwithfasih@gmail.com');
+      showToast('OTP sent to your email successfully.');
     } catch (e: any) {
       console.error('Error sending OTP:', e);
-      setOtpError('Failed to send OTP.');
+      setOtpError('Failed to send OTP. Please check your mail server configuration.');
     } finally {
       setOtpSending(false);
     }
@@ -328,6 +328,17 @@ export default function AdminDashboard() {
       textarea.focus();
       textarea.setSelectionRange(start + replacement.length, start + replacement.length);
     }, 50);
+  };
+
+  const handleDeleteChatLog = async (id: string) => {
+    if (window.confirm('Are you sure you want to delete this chat log?')) {
+      try {
+        await deleteChatLogDoc(id);
+        showToast('Chat log deleted.');
+      } catch (e: any) {
+        alert('Failed to delete chat log: ' + e.message);
+      }
+    }
   };
 
   const handleSaveQuery = async (e: React.FormEvent) => {
@@ -879,14 +890,26 @@ export default function AdminDashboard() {
             ) : (
               <div className="space-y-3">
                 {chatLogs.map((log) => (
-                  <div key={log.id} className="bg-[#faf7f2] border border-[#e2d5c3] rounded-xl p-4 shadow-sm">
-                    <div className="flex items-center justify-between mb-2">
+                  <div key={log.id} className="bg-[#faf7f2] border border-[#e2d5c3] rounded-xl p-4 shadow-sm relative group">
+                    <button 
+                      onClick={() => log.id && handleDeleteChatLog(log.id)}
+                      className="absolute top-4 right-4 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-red-50 rounded"
+                      title="Delete chat log"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <div className="flex items-center gap-2 mb-2">
                       <span className="text-xs font-semibold text-[#1A1A1A]">User Inquiry</span>
+                      {log.rollNo && (
+                        <span className="text-[10px] text-[#4A3E33] bg-[#e2d5c3] px-2 py-0.5 rounded-full font-mono">
+                          ID: {log.rollNo}
+                        </span>
+                      )}
                       <span className="text-[10px] text-[#8A7B6E] uppercase tracking-wider bg-[#ebe0d1] px-2 py-0.5 rounded">
                         Source: {log.source || 'ai'}
                       </span>
                     </div>
-                    <p className="text-sm text-[#2C2621] font-medium mb-3">&ldquo;{log.userMessage}&rdquo;</p>
+                    <p className="text-sm text-[#2C2621] font-medium mb-3 pr-8">&ldquo;{log.userMessage}&rdquo;</p>
                     
                     <div className="bg-[#f0e9df] p-3 rounded-lg text-xs leading-relaxed text-[#38302A] font-serif">
                       <span className="font-sans font-bold text-[10px] uppercase tracking-wider block text-[#7A6C5E] mb-1">AI Response</span>
