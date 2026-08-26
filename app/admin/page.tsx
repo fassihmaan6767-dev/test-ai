@@ -109,6 +109,7 @@ export default function AdminDashboard() {
       
       if (!res.ok) {
         console.warn('Email API failed. OTP is:', code);
+        alert(`Developer Mode: Email API failed (Missing GMAIL_APP_PASSWORD). Your OTP is: ${code}`);
       }
       showToast('OTP sent to talkwithfasih@gmail.com');
     } catch (e: any) {
